@@ -6,7 +6,7 @@
 --   or cam={from={yaw,pitch,dist,h,fov,ox,oz},to={...}, fit=k} (free camera orbiting the player; pitch = elevation;
 --   fit=k sets dist = k * the map's longer side in cells, for room-sized shots),
 --   walk={{'up',48},{'wait',20},...} (world directions), fly='MAPSEC_...' (the WHOLE flight: mount, lift-off, cruise, landing, then flyTail=120 frames; frames is only the cap, default 4000), battle={foe=nat,level=n,taps={f,...}},
---   stills={.5,...} (PNG at those fractions of the shot), stillOnly (no clip), prewalk (steps before recording;
+--   seed=n (love.math.setRandomSeed before the map loads: wild spawns and sky birds repeat), stills={.5,...} (PNG at those fractions of the shot), stillOnly (no clip), prewalk (steps before recording;
 --   the follower appears once the player walks). x/y left out = the map's centre; keep = same map, no reload. list.flags = flag ids set at boot.
 return function(game)
  local U=dofile('tests/drivers/util.lua')
@@ -190,6 +190,7 @@ return function(game)
   if not only or only:find(shot.name,1,true) then
    local t0=realGet()
    cine=nil;hour=type(shot.hour)=='table' and shot.hour[1] or shot.hour or 12
+   if shot.seed then love.math.setRandomSeed(shot.seed) end -- wilds and sky birds are random: a seed makes a shot repeatable
    local ok,err=true,nil
    if not shot.keep then ok,err=pcall(function() assert(Map.load(nil,game,shot.map,{x=shot.x or 1,y=shot.y or 1,facing=shot.facing or 'down'})) end) end
    local L=Map.currentDef() and Map.currentDef().midLayout or {}
