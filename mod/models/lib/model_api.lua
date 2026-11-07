@@ -163,6 +163,14 @@ function Instance:play(value, loop, auxIndex)
   return self._renderer:setAnimation(value, loop, auxIndex)
 end
 
+-- StadiumModels calls this by NAME through safeCall (idle after a move, hit, faint, sleep); a "who calls it"
+-- scan misses that, and without it every model froze on its move's last frame.
+function Instance:playContext(name, loop)
+  local ok, err = live(self)
+  if not ok then return false, err end
+  return self._renderer:setContext(name, loop)
+end
+
 function Instance:playMove(move, loop)
   local ok, err = live(self)
   if not ok then return false, err end

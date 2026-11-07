@@ -103,6 +103,7 @@ local renderer=assert(actor:renderer())
 ok(model.species==25 and model.variant=="shiny","instance owns requested model")
 ok(renderer.options.textureFilter=="nearest","renderer options forwarded")
 ok(actor:play("idle",true) and renderer.context=="idle","context animation helper")
+ok(actor:playContext("idle",true) and renderer.context=="idle","playContext (StadiumModels calls it by name)")
 ok(actor:play(4,false,7) and renderer.animation==4 and renderer.aux==7,
   "indexed animation helper")
 ok(actor:playMove(85,true) and renderer.move==85,"move animation helper")
