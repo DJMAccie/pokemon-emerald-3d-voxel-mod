@@ -1,11 +1,11 @@
 -- Trailer capture: records each shot of a shot list as a 60 fps ProRes clip, one game step per video frame.
 --   EM_SHOTS=<shots.lua> EM_DRIVER=<this file> tools/qa_tryp.sh "" <abs out> "-" 7 0 0   (or tools/trailer.sh)
--- shots.lua returns {party={nat,...}, player='MAY', gender=1, opts={...}, <shot>, <shot>, ...}; a shot:
+-- shots.lua returns {party={nat,...}, moveOrder={2,1,3,4}, player='MAY', gender=1, opts={...}, <shot>, <shot>, ...}; a shot:
 --   name, map, x, y, facing, frames (recorded), warm (frames before recording), hour (number or {from,to}),
 --   level (game camera 4/6/7) + look={from={yaw,pitch},to={...}} for level 6/7,
 --   or cam={from={yaw,pitch,dist,h,fov,ox,oz},to={...}, fit=k} (free camera orbiting the player; pitch = elevation;
 --   fit=k sets dist = k * the map's longer side in cells, for room-sized shots),
---   walk={{'up',48},{'wait',20},...} (world directions), fly='MAPSEC_...' (the WHOLE flight: mount, lift-off, cruise, landing, then flyTail=120 frames; frames is only the cap, default 4000), battle={foe=nat,level=n,taps={f,...}},
+--   walk={{'up',48},{'wait',20},...} (world directions), fly='MAPSEC_...' (the WHOLE flight: mount, lift-off, cruise, landing, then flyTail=120 frames; frames is only the cap, default 4000), battle={foe=nat,level=n,taps={f,...},keys={{f,'right'},...}},
 --   seed=n (love.math.setRandomSeed before the map loads: wild spawns and sky birds repeat), stills={.5,...} (PNG at those fractions of the shot), stillOnly (no clip), prewalk (steps before recording;
 --   the follower appears once the player walks). x/y left out = the map's centre; keep = same map, no reload. list.flags = flag ids set at boot.
 return function(game)
@@ -125,6 +125,13 @@ return function(game)
   local code,m=Party.giveMonToPlayer(game.session,Pokemon.speciesFromNational(nat) or nat,list.partyLevel or 40)
   mon=mon or m
   print('[trailer] party',nat,code)
+ end
+ if list.moveOrder and mon then -- e.g. {2,1,3,4}: the lead's move list reordered (battle menu starts on the first move)
+  local mv,pp,mx={},{},{}
+  for i,j in ipairs(list.moveOrder) do mv[i]=mon.moves[j];pp[i]=mon.pp and mon.pp[j];mx[i]=mon.maxPp and mon.maxPp[j] end
+  mon.moves,mon.pp,mon.maxPp=mv,pp,mx
+  local P1=game.session and game.session.party and game.session.party[1]
+  print('[trailer] moves',table.concat(mon.moves,','),'party[1] same table',tostring(P1==mon),'party[1] moves',P1 and P1.moves and table.concat(P1.moves,','))
  end
 
  if os.getenv('EM_GLASSLOG') then lib.require('GlassMask').log=true end
@@ -248,6 +255,8 @@ return function(game)
    for _,s in ipairs(shot.stills or {.5}) do stills[math.max(1,math.floor(s*frames))]=true end
    local taps={}
    for _,f in ipairs(shot.battle and shot.battle.taps or {}) do taps[f]=true end
+   local keysAt={}   -- battle.keys={{frame,'right'},...}: other menu keys (move cursor) at those frames
+   for _,k in ipairs(shot.battle and shot.battle.keys or {}) do keysAt[k[1]]=k[2] end
    local tr=realGet()
    local flyDone,flyStarted,used=nil,nil,0
    for i=1,frames do
@@ -265,10 +274,12 @@ return function(game)
      if wleft<=0 then wi=wi+1;wleft=nil end
     else hold(nil) end
     if taps[i] then table.insert(game.input.pressQueue,'a');game.input.state.a=true end
+    if keysAt[i] then table.insert(game.input.pressQueue,keysAt[i]);game.input.state[keysAt[i]]=true end
     if stills[i] then print(string.format('[trailer] still %s frame %d hour %.2f glassNight %.2f yaw %.2f pitch %.2f firstArea %s',shot.name,i,hour,V3.glassNight or -1,C.yaw,C.pitch,tostring(Scene.firstArea and Scene.firstArea()))) end
     grab(stills[i] and string.format('%s/%s_%03d.png',dir,shot.name,i) or nil)
     step()
     game.input.state.a=false
+    if keysAt[i] then game.input.state[keysAt[i]]=false end
     if shot.fly and Fly.active() and Fly.state and (Fly.state() or {}).phase=='fly' then flyStarted=true end
     if shot.fly and (i%60==1 or flyDone==i) then local fs=Fly.state and Fly.state();print(string.format('[trailer] fly frame %d active %s phase %s t %.2f/%.2f',i,tostring(Fly.active()),fs and fs.phase or '-',fs and fs.t or 0,fs and fs.T or 0)) end
     if shot.fly and flyStarted and not Fly.active() and not flyDone then flyDone=i;print('[trailer] fly ended at frame',i) end
