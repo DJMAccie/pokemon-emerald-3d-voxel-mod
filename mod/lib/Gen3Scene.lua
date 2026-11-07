@@ -517,6 +517,20 @@ local function build(req,cache,previous)
   local s=c.stairs;cache.openings[#cache.openings+1]={s.cx*16,s.cy*16,(s.cx+s.width)*16,(s.cy+#s.r.rows)*16}
  end end
  Shapes.layout(cells)
+ Interior.fitWall(def,cells)
+ do -- wall pieces (cabinet, fridge, counter...) learn where the wall behind them is, so Gen3PixelFurniture can seat them against it
+  local ip=Interior.forMap(def);local shellZ=ip and ip.bounds and ip.bounds[2]+.12
+  for _,p in ipairs(props)do if p.recipe.wallPiece then
+   local wz=shellZ
+   for x=p.cx,p.cx+math.ceil(p.w/16)-1 do
+    for y=p.cy-1,math.max(0,p.cy-4),-1 do
+     local col=cells[x..':'..y] and cells[x..':'..y].column
+     if col and col.indoor then wz=math.max(wz or -1e9,col.front);break end
+    end
+   end
+   p.wallZ=wz
+  end end
+ end
  Outdoor.groundProps(cells)
  M.bankCount=Standing.bank(cells,Pairs.outdoor(def))
  M.rockJoined=Standing.joinRock(cells,Pairs.outdoor(def))

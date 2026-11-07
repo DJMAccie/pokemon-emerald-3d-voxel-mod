@@ -3,7 +3,8 @@
 -- shots.lua returns {party={nat,...}, player='MAY', gender=1, opts={...}, <shot>, <shot>, ...}; a shot:
 --   name, map, x, y, facing, frames (recorded), warm (frames before recording), hour (number or {from,to}),
 --   level (game camera 4/6/7) + look={from={yaw,pitch},to={...}} for level 6/7,
---   or cam={from={yaw,pitch,dist,h,fov,ox,oz},to={...}} (free camera orbiting the player; pitch = elevation),
+--   or cam={from={yaw,pitch,dist,h,fov,ox,oz},to={...}, fit=k} (free camera orbiting the player; pitch = elevation;
+--   fit=k sets dist = k * the map's longer side in cells, for room-sized shots),
 --   walk={{'up',48},{'wait',20},...} (world directions), fly='MAPSEC_...', battle={foe=nat,level=n,taps={f,...}},
 --   stills={.5,...} (PNG at those fractions of the shot), stillOnly (no clip), prewalk (steps before recording;
 --   the follower appears once the player walks). x/y left out = the map's centre; keep = same map, no reload. list.flags = flag ids set at boot.
@@ -40,6 +41,10 @@ return function(game)
  local Options=lib.require('Gen3SceneOptions')
  if os.getenv('EM_WALLS') then -- one line per map: shell back (cells) vs the front of the room-wall columns
   local ID=lib.require('InteriorDiorama');local p0=ID.profile
+  local fw0=ID.fitWall
+  ID.fitWall=function(def,cells) local p=ID.forMap(def);local before=p and p.bounds and p.bounds[2]
+   fw0(def,cells);local after=p and p.bounds and p.bounds[2]
+   print(string.format('[fit] %s %.2f -> %.2f',tostring(def.id),(before or 0)/16,(after or 0)/16)) end
   local pend,seen='',{}
   ID.profile=function(def,...) local r=p0(def,...)
    if r and r.bounds and not seen[def.id or ''] then seen[def.id or '']=true
@@ -53,7 +58,22 @@ return function(game)
     local col=TS.column(cells,k);if col then fronts[col.front/16]=(fronts[col.front/16] or 0)+1 end end end
    local t={};for f,n in pairs(fronts) do t[#t+1]=string.format('%g:%d',f,n) end;table.sort(t)
    pend=string.format('top=%d fronts=%s',top,table.concat(t,','))
-   return ex0(cells)
+   if os.getenv('EM_WALLS')=='2' then -- first 6 rows: W roomWall, P prop, f flat, ? other (+ collision digit)
+    local maxx=0;for _,c in pairs(cells) do maxx=math.max(maxx,c.cx) end
+    for y=0,5 do local row={}
+     for x=0,math.min(maxx,40) do local c=cells[x..':'..y]
+      row[#row+1]=not c and '  ' or (c.prop and 'P' or c.shape and c.shape.kind=='roomWall' and 'W' or c.shape and c.shape.kind=='flat' and 'f' or '?')..tostring(c.collision or '-') end
+     print('[grid] '..y..' '..table.concat(row,' ')) end
+   end
+   local out=ex0(cells)
+   if os.getenv('EM_WALLS')=='3' then -- after extract: per cell prop recipe name or wall column front (cells), rows 0-3
+    for y=0,3 do local row={}
+     for x=0,12 do local c=cells[x..':'..y]
+      local col=c and c.shape and c.shape.kind=='roomWall' and TS.column(cells,x..':'..y)
+      row[#row+1]=not c and '--' or c.prop and ('P:'..tostring(c.prop.recipe and c.prop.recipe.name or c.prop.name or '?')) or col and ('C'..col.front/16) or '.' end
+     print('[cells] '..y..' '..table.concat(row,' | ')) end
+   end
+   return out
   end
  end
  if os.getenv('EM_PROBE') then -- print every furniture recipe match and the building cells no recipe took
@@ -187,6 +207,7 @@ return function(game)
      local e=shot.cam.linear and u or ease(u)
      local yaw,pitch=mix(f,t,e,'yaw',0),mix(f,t,e,'pitch',.35)
      local dist,h,fov=mix(f,t,e,'dist',120),mix(f,t,e,'h',24),mix(f,t,e,'fov',50)
+     if shot.cam.fit then dist=shot.cam.fit*math.max(L.width or 8,L.height or 8) end
      local cx=(Player.px or 0)+8+mix(f,t,e,'ox',0)
      local cz=(Player.py or 0)+8+mix(f,t,e,'oz',0)
      local g=Scene.groundAt(cx,cz+8-.001,Player.elevation) or 0

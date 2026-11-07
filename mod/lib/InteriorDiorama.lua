@@ -96,7 +96,7 @@ function M.profile(def)
  if cave then theme=(name:find('ICE') or name:find('SEAFOAM')) and 'ice' or 'cave' end
  if id:find('SECRET_BASE_SHRUB') or id:find('SECRET_BASE_TREE') then theme='bush' end
  local b={0,0,def.width*16,def.height*16}
- local voidCells
+ local voidCells,roomTop
  if not cave then
   local x0,z0,x1,z1=def.width,def.height,0,0
   local void=M.VOID_BY_MAP[def.id or '']
@@ -109,6 +109,7 @@ function M.profile(def)
   end end
   if x1<=x0 or z1<=z0 then return end
   b={x0*16,z0*16,x1*16,z1*16}
+  roomTop=z0
   local secondary=V.require('Gen3Tilesets').resolve(def.midLayout.pair,require('src.import.gba.versions').TILESET_PAIRS).secondary
   if secondary=='lab' or secondary=='pokemon_center' or theme=='shop' or secondary=='rom_082d4d94' or secondary=='inside_ship' or secondary=='bike_shop' or secondary=='facility' or (secondary=='generic_building' and theme~='tree') then
    b[2]=math.min(b[4]-16,(z0+2)*16)-.12
@@ -127,22 +128,6 @@ function M.profile(def)
   end
   if secondary=='brendans_mays_house' then
    b[2]=math.min(b[4]-16,(z0+2)*16)-.12
-  end
-  do -- the wall rows are drawn as 4 px panels at the front of their run; the shell's back wall belongs there, not behind them
-   local pr=V.require('Gen3EmeraldInteriors')[secondary]
-   if pr and not M.CABINS[id] and not M.BACK_BY_MAP[id] and theme~='tree' then
-    local count,best,mode={},0,nil
-    for x=x0,x1-1 do
-     local y=z0
-     while y<z1 and y<z0+4 do
-      local mid=def.midLayout:midAt(x,y)
-      if mid and pr.walls[mid] and def.midLayout:collAt(x,y)==7 and not (voidCells and voidCells[x..':'..y]) then y=y+1 else break end
-     end
-     local n=y-z0
-     if n>0 then count[n]=(count[n] or 0)+1;if count[n]>best then best,mode=count[n],n end end
-    end
-    if mode and (z0+mode)*16-.12>b[2] then b[2]=math.min(b[4]-16,(z0+mode)*16)-.12 end
-   end
   end
   if M.BACK_BY_MAP[def.id or ''] then b[2]=math.min(b[4]-16,(z0+M.BACK_BY_MAP[def.id])*16)-.12 end
   do
@@ -184,7 +169,7 @@ function M.profile(def)
    caveHeight=math.max(96,top*(t.rise or StairT.rise or 16)+72)
   end
  end
- return {artWalls=artWalls,southWalls=southWalls,noOpen=cab and cab.noOpen or nil,bounds=b,height=M.HEIGHT_BY_MAP[id] or cab and cab.h or caveHeight or cave and 96 or (theme=='lab' or theme=='center' or theme=='tree') and 32 or 40,theme=theme,cave=cave,voidCells=voidCells,voidIslands=M.VOID_ISLANDS[def.id or ''] or nil,artBack=(M.BACK_BY_MAP[def.id or ''] or cab) and true or nil,
+ return {top=roomTop,artWalls=artWalls,southWalls=southWalls,noOpen=cab and cab.noOpen or nil,bounds=b,height=M.HEIGHT_BY_MAP[id] or cab and cab.h or caveHeight or cave and 96 or (theme=='lab' or theme=='center' or theme=='tree') and 32 or 40,theme=theme,cave=cave,voidCells=voidCells,voidIslands=M.VOID_ISLANDS[def.id or ''] or nil,artBack=(M.BACK_BY_MAP[def.id or ''] or cab) and true or nil,
   capSwatch=cab and cab.cap or nil,thick=cab and cab.thick or nil}
 end
 local function texture(theme)
@@ -444,6 +429,28 @@ function M.forMap(map)
   p.surround=surroundTexture(c)
  end
  p.meshes={};cache[def]=p;return p
+end
+-- The wall rows are drawn as 4 px panels at the FRONT of their column (Gen3TileShape.layout), so a shell wall behind
+-- them shows as a second wall with floor between. When every top-row cell is a wall column with one and the same front
+-- (props are no column members, so rows holding furniture never qualify), the shell's back wall moves to that front.
+-- Runs after Furniture.extract + Shapes.layout; only ever moves the wall forward.
+function M.fitWall(def,cells)
+ local id=def and def.id or ''
+ if M.CABINS[id] or M.BACK_BY_MAP[id] then return end
+ local p=M.forMap(def)
+ if not p or p.cave or p.artBack or p.theme=='tree' then return end
+ local b=p.bounds;local z0=p.top;if not z0 then return end
+ local front
+ for x=math.floor(b[1]/16+.5),math.floor(b[3]/16+.5)-1 do
+  if not (p.voidCells and p.voidCells[x..':'..z0]) then
+   local c=cells[x..':'..z0];local col=c and c.column
+   if not (col and col.indoor and col.first==z0) then return end
+   if front and col.front~=front then return end
+   front=col.front
+  end
+ end
+ local to=front and math.min(b[4]-16,front)-.12
+ if to and to>b[2]+.5 then b[2]=to;p.meshes={} end
 end
 function M.setOpenings(p,openings)
  if not p then return end

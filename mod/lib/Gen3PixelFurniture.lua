@@ -108,6 +108,7 @@ local BACK_YES={'crate','box','load','bucket','bin','seat','chair','stool','sofa
 local BACK_NO={'cabinet','counter','desk','pc','tv','shelf','machine','console','kiosk','fridge','sink','board',
  'display','screen','monitor','register','rack','wardrobe','drawer','server','engine','generator','vending','slot',
  'roulette','gate','partition','fence','rail','railflag','flag','umbrella','kitchen','stove','laptop','appliance','case','showcase'}
+local WALL_PIECE={'cabinet','counter','shelf','fridge','sink','kitchen','stove','drawer','wardrobe','rack','appliance','showcase','desk'}
 local function prepare(a)
  if a[1]:find('plant') and not a[1]:find('planter') then
   a[9]=a[9] or {};a[9].lift=0
@@ -125,6 +126,16 @@ local function prepare(a)
   end
  end
  local back=a[9] and a[9].back
+ do -- pieces that stand against a wall (not TVs/PCs: their depth comes from the tube rule)
+  local wall,free=false,false
+  for tok in a[1]:gsub('^em_gate_','em_'):gmatch('[^_]+')do
+   tok=tok:gsub('%d+$',''):gsub('s$','')
+   for _,w in ipairs(WALL_PIECE)do if tok:sub(-#w)==w then wall=true end end
+   for _,w in ipairs(BACK_YES)do if tok:sub(-#w)==w then free=true end end
+   if tok=='tv' or tok=='pc' or tok:find('top$') then free=true end
+  end
+  if wall and not free then a[9]=a[9] or {};a[9].wallPiece=true end
+ end
  if back==nil then
   local yes,no=false,false
   for tok in a[1]:gsub('^em_gate_','em_'):gmatch('[^_]+')do -- em_gate_*: the Reception Gate's pieces, not gates
@@ -367,6 +378,7 @@ function M.append(p,x,z,pixel,colours,source,box,sample)
   elseif solid then
    local mat=material(front+1,front+h,math.floor((x0+x1)/2),math.min(front+1,D-1))
    local zback=part[7] and z+part[7] or zb
+   if r.wallPiece and p.wallZ and not part[7] and zb-p.wallZ>.5 and zb-p.wallZ<=16 then zback=p.wallZ end -- seated against its wall, not floating in front of it
    box(x+x0,0,zback,x+x1,H,zf,mat)
    if part[14] then
     for k,fr in ipairs(rows)do local y1=H-k+1
@@ -444,6 +456,7 @@ function M.append(p,x,z,pixel,colours,source,box,sample)
 end
 for _,r in ipairs(M.recipes)do
  local n=r.name or ''
+ if n=='em_generic_wardrobe' or n=='em_generic_kitchen' or n=='em_generic_bookshelf' or n=='em_generic_drawers' then r.wallPiece=true end
  if n:find('^em_pacif_chair') or n:find('^em_house_chair') or n:find('^em_generic_chair_e') or n:find('^em_soot_chair')
    or n=='em_player_bed' or n=='em_generic_bed' or n:find('^em_sc_stool') or n:find('^em_pyre_grave') or n:find('^em_pyre_stone') then
   for _,pt in ipairs(r.parts or {})do
