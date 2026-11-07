@@ -48,6 +48,21 @@ return function(game)
     for _,r in pairs(S.spawns) do local d=math.abs(r.cellX-c[1])+math.abs(r.cellY-c[2]);near=math.min(near,d);if math.abs(r.cellX-c[1])<=10 and math.abs(r.cellY-c[2])<=8 then n10=n10+1 end end
     print('[census]',id,'  nearest spawn',near,'within window',n10)
    end
+   -- EM_FOLLOW=1: walk down the map in jumps of ~8 rows (the way a player leaves spawns behind) and report how
+   -- many wilds are around the player each time: total, inside the +-22 x +-18 box, nearest.
+   if os.getenv('EM_FOLLOW') and #cells>0 then
+    table.sort(cells,function(a,b) if a[2]~=b[2] then return a[2]<b[2] end return a[1]<b[1] end)
+    local lastY=-99
+    for _,c in ipairs(cells) do
+     if c[2]>=lastY+8 then
+      lastY=c[2]
+      pcall(Player.reset,c[1],c[2],'down');U.wait(200)
+      local tot,box,near=0,0,999
+      for _,r in pairs(S.spawns) do tot=tot+1;local dx,dy=math.abs(r.cellX-c[1]),math.abs(r.cellY-c[2]);near=math.min(near,dx+dy);if dx<=22 and dy<=18 then box=box+1 end end
+      print('[follow]',id,'at',c[1],c[2],'spawns',tot,'in box',box,'nearest',near)
+     end
+    end
+   end
    -- shot beside one calm visible spawn (3rd person), so the frame shows what a player sees
    local pick
    for _,r in pairs(S.spawns) do if r.visible and (os.getenv('EM_AMBIENT') or not r.ambient) and r.behavior~='aggressive' and r.behavior~='hidden' then pick=r;break end end

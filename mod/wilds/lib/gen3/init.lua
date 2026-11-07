@@ -84,8 +84,15 @@ return function(mod)
   if not species and(map:find('POKECENTER',1,true)or map:find('HOUSE',1,true))then species=52 end
   return species
  end
- local function populate()
+ -- Spawns live around the player: seeded in a +-10 x +-8 window on arrival, refilled in a ring outside the
+ -- view (so a wild never pops in on screen) and dropped once the player has left them behind, else a long
+ -- route was empty after its first screen (the far ones filled the cap).
+ local FAR_X,FAR_Y,RING_X,RING_Y,VIEW_X,VIEW_Y=22,18,18,14,11,9
+ local function populate(fresh)
   if S.shared and S.shared.role=='guest' then return end
+  for _,r in pairs(S.spawns)do
+   if not r.catching and(math.abs(r.cellX-Player.cellX)>FAR_X or math.abs(r.cellY-Player.cellY)>FAR_Y)then S.remove(r)end
+  end
   local occupied,count,ambient={},0,0
   for _,r in pairs(S.spawns)do occupied[r.cellX..':'..r.cellY]=true;if r.ambient then ambient=ambient+1 else count=count+1 end end
   local target=Rules.count(get);local town=get('town_pokemon')and ambientSpecies()
@@ -93,11 +100,13 @@ return function(mod)
   local connected=reachable()
   local mapName=tostring(Map.current):upper();local cave=mapName:find('CAVE',1,true)or mapName:find('MT_',1,true)or mapName:find('TUNNEL',1,true)or mapName:find('VICTORY_ROAD',1,true)
   for _=1,240 do
-   local x,y=Player.cellX+love.math.random(-10,10),Player.cellY+love.math.random(-8,8)
+   local x,y
+   if fresh then x,y=Player.cellX+love.math.random(-10,10),Player.cellY+love.math.random(-8,8)
+   else x,y=Player.cellX+love.math.random(-RING_X,RING_X),Player.cellY+love.math.random(-RING_Y,RING_Y)end
    local key=x..':'..y;local terrain=Encounter.terrainAt(x,y)
    local scenery=cave and terrain~='water'and not connected[key]
    local allowScenery=get('cave_spawns')=='mixed'and scenery and love.math.random()<.2
-   if not occupied[key]and math.abs(x-Player.cellX)+math.abs(y-Player.cellY)>2 then
+   if not occupied[key]and math.abs(x-Player.cellX)+math.abs(y-Player.cellY)>2 and(fresh or math.abs(x-Player.cellX)>VIEW_X or math.abs(y-Player.cellY)>VIEW_Y)then
     if count<target and terrain and Rules.visibleTerrain(get,terrain)and validCell(x,y,terrain)and(not cave or terrain=='water'or connected[key]or allowScenery)then
      local e=sample(Map.current,terrain)
      if e and S.spawn(e.species,e.level,x,y,terrain,{behavior=e.behavior,scenery=scenery,personality=e.personality,shiny=e.shiny})then occupied[key]=true;count=count+1 end
@@ -300,14 +309,14 @@ return function(mod)
    Catching.resetInput()
    if S.shared and S.shared.role=='host'and S.map then local old,rows=Shared.snapshot();S.cache[old]=rows end
    S.map=Map.current;S.spawns={};Actors.clear();Followers.reset();S.signature=signature()
-   if S.shared and S.cache[S.map]then Shared.apply(S.map,S.cache[S.map])else populate()end
+   if S.shared and S.cache[S.map]then Shared.apply(S.map,S.cache[S.map])else populate(true)end
   end
   dt=math.min(.1,math.max(0,dt or 0));S.elapsed=S.elapsed+dt
   if S.signature~=signature()then
    S.signature=signature()
    if not S.shared or S.shared.role=='host'then
     for _,r in pairs(S.spawns)do S.remove(r)end
-    S.cache={};if simulation then simulation.maps={}end;populate()
+    S.cache={};if simulation then simulation.maps={}end;populate(true)
    end
   end
   local blocked=simulationBusy()
@@ -323,7 +332,7 @@ return function(mod)
    for _,row in pairs(S.spawns)do
     if row.visible and not row.catching and row.cellX==Player.cellX and row.cellY==Player.cellY then S.encounter(row);break end
    end
-   S.refill=S.refill+dt;if S.refill>5 then S.refill=0;populate()end
+   S.refill=S.refill+dt;if S.refill>2.5 then S.refill=0;populate()end
   end
   Followers.update(g,dt);Catching.update(g,dt)
  end
