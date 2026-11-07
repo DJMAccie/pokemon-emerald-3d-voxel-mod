@@ -38,6 +38,29 @@ return function(game)
  local DN=lib.require('DayNight')
  local Fly=lib.require('Gen3FlyOver')
  local Options=lib.require('Gen3SceneOptions')
+ if os.getenv('EM_PROBE') then -- print every furniture recipe match and the building cells no recipe took
+  local F=lib.require('Gen3Furniture');local ex0=F.extract
+  F.extract=function(cells)
+   local out=ex0(cells)
+   if os.getenv('EM_DUMP') then -- EM_DUMP="520,524;528,532": write those tiles of the map's tileset as dump.png (x4)
+    local ts;for _,c in pairs(cells) do if c.ts then ts=c.ts break end end
+    local rows={};for rw in os.getenv('EM_DUMP'):gmatch('[^;]+') do local r={};for m in rw:gmatch('%d+') do r[#r+1]=tonumber(m) end rows[#rows+1]=r end
+    local img=love.image.newImageData(#rows[1]*16,#rows*16)
+    for ry,r in ipairs(rows) do for rx,mid in ipairs(r) do local slot=ts.midToSlot[mid]
+     if slot then for py=0,15 do for px=0,15 do
+      local ax,ay=slot%ts.cols*16+px,math.floor(slot/ts.cols)*16+py
+      local a,b,c,d=ts.imageData:getPixel(ax,ay)
+      if ts.overImageData then local a2,b2,c2,d2=ts.overImageData:getPixel(ax,ay);if d2>0 then a,b,c,d=a2*d2+a*(1-d2),b2*d2+b*(1-d2),c2*d2+c*(1-d2),math.max(d,d2) end end
+      img:setPixel((rx-1)*16+px,(ry-1)*16+py,a,b,c,1) end end end end end
+    local fh=io.open(dir..'/dump.png','wb');fh:write(img:encode('png'):getString());fh:close()
+   end
+   for _,p in ipairs(out) do print(string.format('[probe] prop %s at %d,%d (%dx%d px)',p.recipe.name,p.cx,p.cy,p.w,p.d)) end
+   local miss={}
+   for _,c in pairs(cells) do if (c.primary=='building' or c.primary=='general') and not c.prop and not c.stairs then miss[#miss+1]=string.format('%d,%d mid=%s',c.cx,c.cy,tostring(c.mid)) end end
+   table.sort(miss);print('[probe] unmatched building cells: '..table.concat(miss,' | '))
+   return out
+  end
+ end
  local Map=require('src.core.game3.map');local Player=require('src.core.game3.player')
  local Party=require('src.core.game3.party');local Pokemon=require('src.core.game3.pokemon')
  local Field=require('src.core.game3.field')
