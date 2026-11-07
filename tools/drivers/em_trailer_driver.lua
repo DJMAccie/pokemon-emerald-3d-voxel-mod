@@ -5,7 +5,7 @@
 --   level (game camera 4/6/7) + look={from={yaw,pitch},to={...}} for level 6/7,
 --   or cam={from={yaw,pitch,dist,h,fov,ox,oz},to={...}, fit=k} (free camera orbiting the player; pitch = elevation;
 --   fit=k sets dist = k * the map's longer side in cells, for room-sized shots),
---   walk={{'up',48},{'wait',20},...} (world directions), fly='MAPSEC_...', battle={foe=nat,level=n,taps={f,...}},
+--   walk={{'up',48},{'wait',20},...} (world directions), fly='MAPSEC_...' (the WHOLE flight: mount, lift-off, cruise, landing, then flyTail=120 frames; frames is only the cap, default 4000), battle={foe=nat,level=n,taps={f,...}},
 --   stills={.5,...} (PNG at those fractions of the shot), stillOnly (no clip), prewalk (steps before recording;
 --   the follower appears once the player walks). x/y left out = the map's centre; keep = same map, no reload. list.flags = flag ids set at boot.
 return function(game)
@@ -199,7 +199,7 @@ return function(game)
    C.setLevel(shot.level or 7,game)
    C.yaw=(shot.look and shot.look.from.yaw) or (shot.cam and shot.cam.from.yaw) or shot.yaw or 0
    C.pitch=(shot.look and shot.look.from.pitch) or shot.pitch or .16
-   local frames=shot.frames or 300
+   local frames=shot.frames or (shot.fly and 4000) or 300   -- a fly shot ends itself (flight + flyTail); frames is only its cap
    local u=0
    if shot.cam then
     local f,t=shot.cam.from,shot.cam.to or shot.cam.from
@@ -248,8 +248,9 @@ return function(game)
    local taps={}
    for _,f in ipairs(shot.battle and shot.battle.taps or {}) do taps[f]=true end
    local tr=realGet()
-   local flyDone,flyStarted
+   local flyDone,flyStarted,used=nil,nil,0
    for i=1,frames do
+    used=i
     u=(i-1)/math.max(1,frames-1)
     if type(shot.hour)=='table' then hour=lerp(shot.hour[1],shot.hour[2],shot.hourLinear and u or ease(u)) end
     if shot.look and not shot.cam then
@@ -267,13 +268,14 @@ return function(game)
     grab(stills[i] and string.format('%s/%s_%03d.png',dir,shot.name,i) or nil)
     step()
     game.input.state.a=false
-    if shot.fly and Fly.active() then flyStarted=true end
+    if shot.fly and Fly.active() and Fly.state and (Fly.state() or {}).phase=='fly' then flyStarted=true end
+    if shot.fly and (i%60==1 or flyDone==i) then local fs=Fly.state and Fly.state();print(string.format('[trailer] fly frame %d active %s phase %s t %.2f/%.2f',i,tostring(Fly.active()),fs and fs.phase or '-',fs and fs.t or 0,fs and fs.T or 0)) end
     if shot.fly and flyStarted and not Fly.active() and not flyDone then flyDone=i;print('[trailer] fly ended at frame',i) end
     if flyDone and i>flyDone+(shot.flyTail or 120) then break end
    end
    hold(nil)
    stop()
-   print(string.format('[trailer] recorded %s: %d frames in %.1f s, map %s, cell %s,%s',shot.name,frames,realGet()-tr,tostring(Map.current),tostring(Player.cellX),tostring(Player.cellY)))
+   print(string.format('[trailer] recorded %s: %d frames in %.1f s, map %s, cell %s,%s',shot.name,used,realGet()-tr,tostring(Map.current),tostring(Player.cellX),tostring(Player.cellY)))
    cine=nil
   end
  end
