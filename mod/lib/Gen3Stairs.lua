@@ -31,6 +31,19 @@ function M.prepare(cells)
  end
  return count
 end
+-- Brendan's/May's house 1F: the stair doorway sits in the wall's lowest row, but the wall itself stands one row back
+-- (at the kitchen's wall face); the wall-base tiles beside the doorway would stand up as slabs or lie as pale mats, so they become floor
+function M.flatten(cells)
+ for _,s in pairs(cells)do
+  if s.pair=='building__brendans_mays_house' and M.wallKind(s)=='up' then
+   for dx=-2,2 do local n=cells[(s.cx+dx)..':'..s.cy]
+    if n and n~=s and n.pair==s.pair and n.collision==7 and not n.prop and not M.wallKind(n) then
+     n.shape={kind='flat',groundMid=0x201};n.column=nil
+    end
+   end
+  end
+ end
+end
 local function builder(c,emit,uvFor)
  local ox,oz=c.cx*16,c.cy*16
  local function tex(mid,x,y)
@@ -148,7 +161,7 @@ function M.appendWall(c,quad,uvFor,frameMid)
  local x,z=c.cx*16,c.cy*16
  local tread=swatch(uv,8,12) -- the light step colour in the doorway art
  local riser=swatch(uv,8,9)
- local cheek=swatch(fuv,1,8) -- the gold frame
+ local cheek=swatch(c.pair=='building__brendans_mays_house' and uv or fuv,c.pair=='building__brendans_mays_house' and 2 or 1,8) -- the gold frame
  local dark=swatch(uv,8,2)
  local x0,x1=x+2,x+14
  local function box(a,y0,c0,b,y1,c1,t,shade)
@@ -157,15 +170,29 @@ function M.appendWall(c,quad,uvFor,frameMid)
   quad({{a,y1,c0},{a,y1,c1},{a,y0,c1},{a,y0,c0}},t,(shade or 1)*.72)
   quad({{b,y1,c1},{b,y1,c0},{b,y0,c0},{b,y0,c1}},t,(shade or 1)*.72)
  end
+ -- Brendan's/May's house: the doorway is drawn in the wall, so it goes flat on the wall face
+ -- (the cell's north edge for 'up', its south edge for 'down'), not as slabs standing in front of it
+ local doorway=c.pair=='building__brendans_mays_house'
+ local function frame(zw,hgt)
+  local post=swatch(uv,2,8)
+  local function front(a,b,y0,y1,t,sh)quad({{a,y1,zw},{b,y1,zw},{b,y0,zw},{a,y0,zw}},t,sh)end
+  front(x0,x1,0,hgt,riser,.55)
+  front(x,x0,0,hgt+4,post,.9);front(x1,x+16,0,hgt+4,post,.9);front(x0,x1,hgt,hgt+4,post,.9)
+ end
+ if doorway and k=='down' then return true end -- the wall art already shows this doorway
  if k=='up' then
+  if doorway then frame(z+.03,30) end
   for i=0,3 do
    local h=(i+1)*4
    local zf=z+16-i*4
    box(x0,0,zf-4,x1,h,zf,tread)
    quad({{x0,h,zf},{x1,h,zf},{x1,h-4,zf},{x0,h-4,zf}},riser,.8)
+   if doorway then box(x0-1.5,0,zf-4,x0,h+2,zf,cheek,.9);box(x1,0,zf-4,x1+1.5,h+2,zf,cheek,.9) end
   end
-  box(x,0,z,x0,18,z+16,cheek,.9)
-  box(x1,0,z,x+16,18,z+16,cheek,.9)
+  if not doorway then
+   box(x,0,z,x0,18,z+16,cheek,.9)
+   box(x1,0,z,x+16,18,z+16,cheek,.9)
+  end
  else
   quad({{x0,-16,z},{x1,-16,z},{x1,-16,z+16},{x0,-16,z+16}},dark,.5)
   quad({{x0,0,z},{x0,0,z+16},{x0,-16,z+16},{x0,-16,z}},dark,.6)

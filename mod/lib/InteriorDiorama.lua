@@ -126,12 +126,28 @@ function M.profile(def)
    b[2]=math.min(b[4]-16,(z0+2)*16)-.12
   end
   if secondary=='brendans_mays_house' then
-   b[2]=math.min(b[4]-16,(z0+1)*16)-.12
+   b[2]=math.min(b[4]-16,(z0+2)*16)-.12
+  end
+  do -- the wall rows are drawn as 4 px panels at the front of their run; the shell's back wall belongs there, not behind them
+   local pr=V.require('Gen3EmeraldInteriors')[secondary]
+   if pr and not M.CABINS[id] and not M.BACK_BY_MAP[id] and theme~='tree' then
+    local count,best,mode={},0,nil
+    for x=x0,x1-1 do
+     local y=z0
+     while y<z1 and y<z0+4 do
+      local mid=def.midLayout:midAt(x,y)
+      if mid and pr.walls[mid] and def.midLayout:collAt(x,y)==7 and not (voidCells and voidCells[x..':'..y]) then y=y+1 else break end
+     end
+     local n=y-z0
+     if n>0 then count[n]=(count[n] or 0)+1;if count[n]>best then best,mode=count[n],n end end
+    end
+    if mode and (z0+mode)*16-.12>b[2] then b[2]=math.min(b[4]-16,(z0+mode)*16)-.12 end
+   end
   end
   if M.BACK_BY_MAP[def.id or ''] then b[2]=math.min(b[4]-16,(z0+M.BACK_BY_MAP[def.id])*16)-.12 end
   do
    local t=V.require('Gen3Stairs').WALL[def.midLayout.pair or '']
-   if t then
+   if t and secondary~='brendans_mays_house' then -- here the doorway is wall art; the shell stays at the wall's face
     for y=z0,math.min(z1-1,z0+3) do for x=x0,x1-1 do
      local mid=def.midLayout:midAt(x,y);local cell=def.midLayout:cellAt(x,y)
      if t[mid] and cell and cell.coll~=7 then b[2]=math.min(b[2],y*16-.12) end

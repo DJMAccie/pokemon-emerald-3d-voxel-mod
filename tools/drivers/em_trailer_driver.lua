@@ -38,6 +38,24 @@ return function(game)
  local DN=lib.require('DayNight')
  local Fly=lib.require('Gen3FlyOver')
  local Options=lib.require('Gen3SceneOptions')
+ if os.getenv('EM_WALLS') then -- one line per map: shell back (cells) vs the front of the room-wall columns
+  local ID=lib.require('InteriorDiorama');local p0=ID.profile
+  local pend,seen='',{}
+  ID.profile=function(def,...) local r=p0(def,...)
+   if r and r.bounds and not seen[def.id or ''] then seen[def.id or '']=true
+    print(string.format('[walls] %s shellBack=%.2f %s',tostring(def.id),r.bounds[2]/16,pend)) end
+   return r end
+  local F=lib.require('Gen3Furniture');local ex0=F.extract
+  F.extract=function(cells)
+   local TS=lib.require('Gen3TileShape');local fronts,top={},99
+   for _,c in pairs(cells) do if c.shape and c.shape.kind=='roomWall' then top=math.min(top,c.cy) end end
+   for k,c in pairs(cells) do if c.shape and c.shape.kind=='roomWall' and c.cy==top then
+    local col=TS.column(cells,k);if col then fronts[col.front/16]=(fronts[col.front/16] or 0)+1 end end end
+   local t={};for f,n in pairs(fronts) do t[#t+1]=string.format('%g:%d',f,n) end;table.sort(t)
+   pend=string.format('top=%d fronts=%s',top,table.concat(t,','))
+   return ex0(cells)
+  end
+ end
  if os.getenv('EM_PROBE') then -- print every furniture recipe match and the building cells no recipe took
   local F=lib.require('Gen3Furniture');local ex0=F.extract
   F.extract=function(cells)
@@ -56,7 +74,7 @@ return function(game)
    end
    for _,p in ipairs(out) do print(string.format('[probe] prop %s at %d,%d (%dx%d px)',p.recipe.name,p.cx,p.cy,p.w,p.d)) end
    local miss={}
-   for _,c in pairs(cells) do if (c.primary=='building' or c.primary=='general') and not c.prop and not c.stairs then miss[#miss+1]=string.format('%d,%d mid=%s',c.cx,c.cy,tostring(c.mid)) end end
+   for _,c in pairs(cells) do if (c.primary=='building' or c.primary=='general') and not c.prop and not c.stairs then miss[#miss+1]=string.format('%d,%d mid=%s k=%s col=%s',c.cx,c.cy,tostring(c.mid),tostring(c.shape and c.shape.kind),tostring(c.collision)) end end
    table.sort(miss);print('[probe] unmatched building cells: '..table.concat(miss,' | '))
    return out
   end

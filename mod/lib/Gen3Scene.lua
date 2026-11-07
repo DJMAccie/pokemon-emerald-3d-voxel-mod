@@ -507,6 +507,7 @@ local function build(req,cache,previous)
  Decks.prepare(cells,def)
  local setBack=Decks.MAPS[def.id or ''] and true or false
  M.stairCount=Stairs.prepare(cells)
+ Stairs.flatten(cells)
  local props=Furniture.extract(cells)
  cache.openings={}
  for _,p in ipairs(props)do if p.recipe.noGround and p.recipe.down then
