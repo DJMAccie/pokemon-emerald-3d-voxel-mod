@@ -33,6 +33,7 @@ return function(mod)
  local Presentation=loadfile('presentation')(mod,Actors)
  local sprite=Presentation.sprite
  local Followers=loadfile('followers')(mod,Actors,Presentation,simulationBusy)
+ local Flyers=loadfile('flyers')(mod,Actors,Presentation,get)
  local function sample(map,terrain)
   Encounter.ensureLoaded();local t=Encounter.tableFor(map)
   local area=t and(terrain=='water'and t.water or terrain~='water'and(t.land or t.grass))
@@ -166,7 +167,7 @@ return function(mod)
    and type(authority.session)=='string' and type(authority.request)=='function'))
   if S.shared==authority then return end
   simulation=authority and authority.role=='host' and Simulation.new{session=authority.session,describe=remoteTerrain,pick=sample,random=love.math.random,count=function()return Rules.count(get)end,allowTerrain=function(kind)return Rules.visibleTerrain(get,kind)end,nativeFrames=true}or nil
-  S.shared=authority;S.cache={};S.spawns={};S.map=nil;S.follower=nil;Actors.clear()
+  S.shared=authority;S.cache={};S.spawns={};S.map=nil;S.follower=nil;Actors.clear();Flyers.reset()
  end
  function Shared.apply(map,rows)
   S.cache[map]=rows
@@ -308,7 +309,7 @@ return function(mod)
   if S.map~=Map.current then
    Catching.resetInput()
    if S.shared and S.shared.role=='host'and S.map then local old,rows=Shared.snapshot();S.cache[old]=rows end
-   S.map=Map.current;S.spawns={};Actors.clear();Followers.reset();S.signature=signature()
+   S.map=Map.current;S.spawns={};Actors.clear();Followers.reset();Flyers.reset();S.signature=signature()
    if S.shared and S.cache[S.map]then Shared.apply(S.map,S.cache[S.map])else populate(true)end
   end
   dt=math.min(.1,math.max(0,dt or 0));S.elapsed=S.elapsed+dt
@@ -334,7 +335,7 @@ return function(mod)
    end
    S.refill=S.refill+dt;if S.refill>2.5 then S.refill=0;populate()end
   end
-  Followers.update(g,dt);Catching.update(g,dt)
+  Followers.update(g,dt);Flyers.update(g,dt,blocked);Catching.update(g,dt)
  end
  mod.hooks:wrap('input.step',function(nextFn,g,dt)nextFn(g,dt);S.update(dt)end)
  mod.hooks:wrap('encounter.roll',function(nextFn,def,ctx)
@@ -349,7 +350,7 @@ return function(mod)
   table.sort(lines);love.graphics.print(table.concat(lines,'\n'),(viewport.gameX or 0)+4,(viewport.gameY or 0)+4);love.graphics.pop()
  end)
  mod.exports.wilds=S;mod.exports.resolveGen3Sprite=sprite;mod.exports.gen3Actors=Actors
- mod.exports.gen3Catching=Catching;mod.exports.gen3Followers=Followers;mod.exports.optionSchema=schema
+ mod.exports.gen3Catching=Catching;mod.exports.gen3Followers=Followers;mod.exports.gen3Flyers=Flyers;mod.exports.optionSchema=schema
  mod.exports.getActiveFollowerMon=function(g)return Followers.leader(g or game())end
  mod.exports.supportsFeature=function(feature)return feature=='encounters'or feature=='followers'or feature=='catching'or feature=='townPokemon'end
  mod.log:info('Native FireRed Wilds: shared settings, visible encounters, party followers and direct catching loaded')
