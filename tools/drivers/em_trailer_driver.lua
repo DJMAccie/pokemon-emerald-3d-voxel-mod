@@ -83,6 +83,38 @@ return function(game)
    return out
   end
  end
+ if os.getenv('EM_ZFIGHT') then -- print coplanar, same-facing, overlapping quads of each room shell side (they z-fight)
+  local ID=lib.require('InteriorDiorama');local g0=ID.geometry;local done={}
+  ID.geometry=function(p,side,opened)
+   local verts,idx=g0(p,side,opened)
+   local key=tostring(p)..side..tostring(opened or false)
+   if not done[key] then done[key]=true
+    local q={}
+    for n=0,#verts-4,4 do
+     local a,b,c,d=verts[n+1],verts[n+2],verts[n+3],verts[n+4]
+     for axis=1,3 do
+      if math.abs(a[axis]-b[axis])<1e-4 and math.abs(a[axis]-c[axis])<1e-4 and math.abs(a[axis]-d[axis])<1e-4 then
+       local o={1,2,3};table.remove(o,axis);local u,v=o[1],o[2]
+       local nrm=(b[u]-a[u])*(c[v]-a[v])-(b[v]-a[v])*(c[u]-a[u])
+       local lo1,hi1,lo2,hi2=math.huge,-math.huge,math.huge,-math.huge
+       for _,P in ipairs({a,b,c,d}) do lo1=math.min(lo1,P[u]);hi1=math.max(hi1,P[u]);lo2=math.min(lo2,P[v]);hi2=math.max(hi2,P[v]) end
+       q[#q+1]={axis=axis,at=a[axis],sign=nrm>0 and 1 or -1,lo1=lo1,hi1=hi1,lo2=lo2,hi2=hi2,sw=a[4],n=n/4}
+      end
+     end
+    end
+    local hits=0
+    for i=1,#q do for j=i+1,#q do local A,B=q[i],q[j]
+     if A.axis==B.axis and math.abs(A.at-B.at)<1e-3 and A.sign==B.sign
+        and math.min(A.hi1,B.hi1)-math.max(A.lo1,B.lo1)>.01 and math.min(A.hi2,B.hi2)-math.max(A.lo2,B.lo2)>.01 then
+      hits=hits+1
+      if hits<=12 then print(string.format('[zfight] side %d axis %s=%.2f swatch %s/%s  A[%.1f..%.1f x %.1f..%.1f] B[%.1f..%.1f x %.1f..%.1f]',side,({'x','y','z'})[A.axis],A.at,tostring(A.sw),tostring(B.sw),A.lo1,A.hi1,A.lo2,A.hi2,B.lo1,B.hi1,B.lo2,B.hi2)) end
+     end
+    end end
+    print(string.format('[zfight] side %d opened %s: %d quads, %d coplanar overlaps',side,tostring(opened or false),#q,hits))
+   end
+   return verts,idx
+  end
+ end
  if os.getenv('EM_PROBE') then -- print every furniture recipe match and the building cells no recipe took
   local F=lib.require('Gen3Furniture');local ex0=F.extract
   F.extract=function(cells)

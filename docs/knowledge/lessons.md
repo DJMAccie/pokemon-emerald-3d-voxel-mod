@@ -204,3 +204,7 @@ Rules: R-45
 ### L-84 Trailer capture runs battle sprites and camera at about 19x speed
 Cause: Gen3Battle, StadiumModels and BattleShots advance by love.timer.getDelta(), the real frame time; capturing one frame takes ~0.3 s, so sprite and move animations and camera cuts raced ahead of the game steps (Petya 2026-11-08: the 2D battle sprites feel sped up).
 Fix: em_trailer_driver.lua returns 1/60 from getDelta to the battle files; re-record any battle shot made before that, and use shot.recordFrom to fit the 400 s cap.
+
+### L-85 Interior shell and stairs z-fight: coplanar faces from layered boxes
+Cause: InteriorDiorama.run drew the wall, base, chair rail, cap and 2 px end posts as boxes sharing the run's end planes and the 3.6 rail depth, and Gen3Stairs.appendWall gave every tread box a front face on the same plane as its riser quad: coplanar same-facing faces z-fight, so the stairs and the end of the left wall flickered in the trailer (Petya 2026-11-08: 'the stairs in may's home flicker, as well as the wall on the left').
+Fix: End posts stand .05 past the run and .1 deeper (3.7); tread boxes skip their front face (the riser quad is that face). Find these with EM_ZFIGHT=1 tools/trailer.sh (lists coplanar same-facing overlapping shell quads; first shot must be a throwaway map so the probe is installed before the room builds); only the same-colour window bars may remain.

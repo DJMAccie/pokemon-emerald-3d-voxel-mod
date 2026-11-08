@@ -164,9 +164,9 @@ function M.appendWall(c,quad,uvFor,frameMid)
  local cheek=swatch(c.pair=='building__brendans_mays_house' and uv or fuv,c.pair=='building__brendans_mays_house' and 2 or 1,8) -- the gold frame
  local dark=swatch(uv,8,2)
  local x0,x1=x+2,x+14
- local function box(a,y0,c0,b,y1,c1,t,shade)
+ local function box(a,y0,c0,b,y1,c1,t,shade,noFront)
   quad({{a,y1,c0},{b,y1,c0},{b,y1,c1},{a,y1,c1}},t,1)
-  quad({{a,y1,c1},{b,y1,c1},{b,y0,c1},{a,y0,c1}},t,(shade or 1)*.85)
+  if not noFront then quad({{a,y1,c1},{b,y1,c1},{b,y0,c1},{a,y0,c1}},t,(shade or 1)*.85)end
   quad({{a,y1,c0},{a,y1,c1},{a,y0,c1},{a,y0,c0}},t,(shade or 1)*.72)
   quad({{b,y1,c1},{b,y1,c0},{b,y0,c0},{b,y0,c1}},t,(shade or 1)*.72)
  end
@@ -185,7 +185,7 @@ function M.appendWall(c,quad,uvFor,frameMid)
   for i=0,3 do
    local h=(i+1)*4
    local zf=z+16-i*4
-   box(x0,0,zf-4,x1,h,zf,tread)
+   box(x0,0,zf-4,x1,h,zf,tread,nil,true) -- no front face: the riser quad below is that face (two coplanar faces z-fought)
    quad({{x0,h,zf},{x1,h,zf},{x1,h-4,zf},{x0,h-4,zf}},riser,.8)
    if doorway then box(x0-1.5,0,zf-4,x0,h+2,zf,cheek,.9);box(x1,0,zf-4,x1+1.5,h+2,zf,cheek,.9) end
   end

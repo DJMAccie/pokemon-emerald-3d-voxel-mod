@@ -347,7 +347,8 @@ function M.geometry(p,side,opened)
     part(l,7,r,8,3,3.6,at)
     part(l,h-2,r,h+1.2,p.capSwatch or 3,4,at)
     part(l,h-3.5,r,h-2,2,3.5,at)
-    for _,a in ipairs({l,r-2})do part(a,0,a+2,h,2,3.6,at)end
+    -- the end posts stand .05 past the run's ends and .1 deeper than the chair rail: their end and side faces no longer share a plane with the wall, base and rail boxes (z-fighting)
+    part(l-.05,0,l+2,h,2,3.7,at);part(r-2,0,r+.05,h,2,3.7,at)
    end
    local V2=p.voidCells
    if not V2 then run(start,finish)
