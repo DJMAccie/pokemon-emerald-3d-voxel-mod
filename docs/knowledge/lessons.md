@@ -200,3 +200,7 @@ Rules: R-22
 Cause: 160b71e3 removed Instance:playContext from model_api.lua as test-only; StadiumModels calls it as safeCall(actor.instance,'playContext',...), a string name no caller scan sees, and safeCall swallows the missing method. Every context switch failed: after a move the model froze on the clip's last frame, the next move restarted the 184-frame clip, hit/faint/sleep never played (the 'spastic Zigzagoon').
 Fix: Before deleting an API method grep its name as a string too (rg "'name'|\"name\""); a safeCall that returns nil hides a missing method, so check with tools/drivers/em_animprobe_driver.lua (per-frame ctx/anim/frame, EM_PROBE_TAPS=150 to run moves). playContext restored, test asserts it.
 Rules: R-45
+
+### L-84 Trailer capture runs battle sprites and camera at about 19x speed
+Cause: Gen3Battle, StadiumModels and BattleShots advance by love.timer.getDelta(), the real frame time; capturing one frame takes ~0.3 s, so sprite and move animations and camera cuts raced ahead of the game steps (Petya 2026-11-08: the 2D battle sprites feel sped up).
+Fix: em_trailer_driver.lua returns 1/60 from getDelta to the battle files; re-record any battle shot made before that, and use shot.recordFrom to fit the 400 s cap.

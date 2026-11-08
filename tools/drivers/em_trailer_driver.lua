@@ -5,7 +5,7 @@
 --   level (game camera 4/6/7) + look={from={yaw,pitch},to={...}} for level 6/7,
 --   or cam={from={yaw,pitch,dist,h,fov,ox,oz},to={...}, fit=k} (free camera orbiting the player; pitch = elevation;
 --   fit=k sets dist = k * the map's longer side in cells, for room-sized shots),
---   walk={{'up',48},{'wait',20},...} (world directions), fly='MAPSEC_...' (the WHOLE flight: mount, lift-off, cruise, landing, then flyTail=120 frames; frames is only the cap, default 4000), battle={foe=nat,level=n,taps={f,...},keys={{f,'right'},...}},
+--   walk={{'up',48},{'wait',20},...} (world directions), fly='MAPSEC_...' (the WHOLE flight: mount, lift-off, cruise, landing, then flyTail=120 frames; frames is only the cap, default 4000), battle={foe=nat,level=n,taps={f,...},keys={{f,'right'},...}}, recordFrom=n (the first n-1 frames play without capture: a battle intro that would eat the 400 s QA cap),
 --   seed=n (love.math.setRandomSeed before the map loads: wild spawns and sky birds repeat), stills={.5,...} (PNG at those fractions of the shot), stillOnly (no clip), prewalk (steps before recording;
 --   the follower appears once the player walks). x/y left out = the map's centre; keep = same map, no reload. list.flags = flag ids set at boot.
 return function(game)
@@ -26,6 +26,13 @@ return function(game)
   local i=debug.getinfo(2,'S');local s=i and i.short_src or ''
   if s:find('Voxel3D',1,true) or s:find('TowerGraveMist',1,true) then return vt end
   return realGet()
+ end
+ -- battle actors, sprite animation and camera cuts advance by getDelta (the real frame time, ~0.3 s while capturing): give them one game step
+ local realDelta=love.timer.getDelta
+ love.timer.getDelta=function()
+  local i=debug.getinfo(2,'S');local s=i and i.short_src or ''
+  if s:find('Gen3Battle',1,true) or s:find('BattleShots',1,true) or s:find('StadiumModels',1,true) or s:find('BattleCam',1,true) then return 1/60 end
+  return realDelta()
  end
 
  local first=list[1]
@@ -276,7 +283,7 @@ return function(game)
     if taps[i] then table.insert(game.input.pressQueue,'a');game.input.state.a=true end
     if keysAt[i] then table.insert(game.input.pressQueue,keysAt[i]);game.input.state[keysAt[i]]=true end
     if stills[i] then print(string.format('[trailer] still %s frame %d hour %.2f glassNight %.2f yaw %.2f pitch %.2f firstArea %s',shot.name,i,hour,V3.glassNight or -1,C.yaw,C.pitch,tostring(Scene.firstArea and Scene.firstArea()))) end
-    grab(stills[i] and string.format('%s/%s_%03d.png',dir,shot.name,i) or nil)
+    if i>=(shot.recordFrom or 1) or stills[i] then grab(stills[i] and string.format('%s/%s_%03d.png',dir,shot.name,i) or nil) end -- recordFrom=n: play the first n-1 frames without capturing (saves capture time)
     step()
     game.input.state.a=false
     if keysAt[i] then game.input.state[keysAt[i]]=false end
