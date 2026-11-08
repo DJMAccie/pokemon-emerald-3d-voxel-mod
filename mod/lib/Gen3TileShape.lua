@@ -185,7 +185,53 @@ local function emeraldBuildings(cells)
   end
  end
 end
+-- A wall-collision tile above a wall cell that the tileset's wall list lacks is that wall art's top half (clock, light band)
+local function pixels(c,y,x)
+ local ts=c.ts;local slot=ts.midToSlot[c.mid]
+ return ts.imageData:getPixel(slot%ts.cols*16+x,math.floor(slot/ts.cols)*16+y)
+end
+local function void(c) -- black padding, or a tile with a black corner (tree and Pacifidlog walls)
+ local ts=c.ts
+ if not (ts and ts.imageData and ts.midToSlot[c.mid]) then return true end
+ local n=0
+ for y=0,15 do for x=0,15 do local r,g,b=pixels(c,y,x);if r+g+b<.15 then n=n+1 end end end
+ return n>=12
+end
+local function bands(c,rows) -- the tile's top `rows` pixel rows are each one colour: a signature, or nil when decor or furniture is in them
+ local sig={}
+ for y=0,rows-1 do
+  local r0,g0,b0=pixels(c,y,0);local off=0
+  for x=1,15 do local r,g,b=pixels(c,y,x);if math.abs(r-r0)+math.abs(g-g0)+math.abs(b-b0)>.06 then off=off+1 end end
+  if off>1 then return end
+  sig[#sig+1]=string.format('%d,%d,%d',r0*31,g0*31,b0*31)
+ end
+ return table.concat(sig,';')
+end
+local function adoptTops(cells)
+ local add,props,seen={},{},{}
+ for _,c in pairs(cells)do
+  local below=cells[c.cx..':'..(c.cy+1)]
+  if c.shape.kind=='flat' and not c.prop and (c.collision or 0)==7 and not c.shape.reviewedSurface and not c.shape.groundMid
+   and below and below.pair==c.pair and below.secondary==c.secondary and not void(c) then
+   local s=below.shape
+   local two=cells[c.cx..':'..(c.cy+2)]
+   if not (two and not two.prop and two.shape.kind=='roomWall' and two.pair==c.pair) then
+    if below.prop then props[#props+1]=c
+    elseif s.kind=='roomWall' and not s.tall and not s.fullHeight and not s.sideArt and not s.trimTop then
+     add[#add+1]={c,s.ground};local sig=bands(c,9);if sig then seen[sig]=true end
+    end
+   end
+  end
+ end
+ for _,c in ipairs(props)do -- furniture against the wall: the room's plain top band continues over it
+  local p=profiles[c.secondary]
+  if p and seen[bands(c,9) or 0] and bands(c,16) then add[#add+1]={c,p.floor} end
+ end
+ for _,a in ipairs(add)do a[1].shape={kind='roomWall',ground=a[2],topAdopted=true} end
+ M.adopted=#add
+end
 function M.layout(cells)
+ adoptTops(cells)
  for key,c in pairs(cells)do
   local col=M.column(cells,key)
   c.column=col
