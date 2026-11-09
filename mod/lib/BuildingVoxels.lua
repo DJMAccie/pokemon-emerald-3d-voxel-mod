@@ -191,7 +191,87 @@ function M.prepare(cells,def,claim)
  return out
 end
 
-function M.mesh(bld,data,img)
+-- Night windows: quads sample shared colour swatches, so the texel mask lights only part of a pane.
+-- Unlit bluish quads inside a box of lit quads (same wall plane) get a twin texel that GlassMask lights too.
+M.PANE_GAP=2
+M.PANE_BOX=24
+M.PANE_LUM=55
+local function twinPanes(q,repaint,data,glass,iw,ih)
+ local planes={}
+ local function key(a,h)return (h+64)*8192+a+4096 end
+ for i=1,#q,10 do
+  local f=q[i]
+  if f~=3 and q[i+4]>q[i+3] then
+   local j=repaint[i] or i
+   local px,py=q[j+7],q[j+8]
+   if px>=0 and py>=0 and px<iw and py<ih then
+    local side=f~=1 and f~=2
+    local pk=f*8192+(side and q[i+1] or q[i+5])+4096
+    local a0,a1=side and q[i+5] or q[i+1],side and q[i+6] or q[i+2]
+    if a0>a1 then a0,a1=a1,a0 end
+    local P=planes[pk];if not P then P={lit={},list={},rest={}};planes[pk]=P end
+    if glass[py*iw+px+1] then
+     if a1-a0<=M.PANE_BOX then
+      for h=q[i+3],q[i+4]-1 do for a=a0,a1-1 do
+       local k=key(a,h)
+       if not P.lit[k] then P.lit[k]=true;P.list[#P.list+1]={a,h} end
+      end end
+     end
+    else P.rest[#P.rest+1]={i,a0,a1-1,q[i+3],q[i+4]-1,px,py} end
+   end
+  end
+ end
+ local twin,slot,n={},{},0
+ local G=M.PANE_GAP+1
+ for _,P in pairs(planes)do
+  local boxes,seen={},{}
+  for _,s in ipairs(P.list)do
+   local k0=key(s[1],s[2])
+   if not seen[k0] then
+    seen[k0]=true
+    local queue,head={s},1
+    local x0,x1,y0,y1=s[1],s[1],s[2],s[2]
+    while head<=#queue do
+     local a,h=queue[head][1],queue[head][2];head=head+1
+     if a<x0 then x0=a end;if a>x1 then x1=a end;if h<y0 then y0=h end;if h>y1 then y1=h end
+     for dh=-G,G do for da=-G,G do
+      local k=key(a+da,h+dh)
+      if P.lit[k] and not seen[k] then seen[k]=true;queue[#queue+1]={a+da,h+dh} end
+     end end
+    end
+    if #queue>=6 and x1-x0<M.PANE_BOX and y1-y0<M.PANE_BOX then
+     local cols,rows={},{}
+     for _,c in ipairs(queue)do cols[c[1]]=true;rows[c[2]]=true end
+     boxes[#boxes+1]={x0,x1,y0,y1,cols,rows}
+    end
+   end
+  end
+  if boxes[1] then
+   for _,r in ipairs(P.rest)do
+    for _,b in ipairs(boxes)do
+     if r[2]>=b[1] and r[3]<=b[2] and r[4]>=b[3] and r[5]<=b[4] then
+      local cr,cg,cb,ca=data:getPixel(r[6],r[7])
+      cr,cg,cb=cr*255,cg*255,cb*255
+      -- a column or row of the box without any glass is a sash bar: it stays dark
+      local col,row=false,false
+      for a=r[2],r[3] do if b[5][a] then col=true;break end end
+      for h=r[4],r[5] do if b[6][h] then row=true;break end end
+      if col and row and ca>.5 and cb>=cg-4 and cb>=cr and .299*cr+.587*cg+.114*cb>=M.PANE_LUM then -- glass shades and reflections
+       local t=r[7]*iw+r[6]
+       if not slot[t] then slot[t]=n;n=n+1 end
+       twin[r[1]]=slot[t]
+      end
+      break
+     end
+    end
+   end
+  end
+ end
+ return twin,slot,n
+end
+
+-- Returns the mesh; with twins also the taller picture (data, image) and the twin texel list for GlassMask.
+function M.mesh(bld,data,img,glass)
  local m=bld.voxels
  local iw,ih=data:getDimensions()
  local ox=bld.cx*16
@@ -258,11 +338,15 @@ function M.mesh(bld,data,img)
    end
   end
  end
+ local twin,slot,nt={},nil,0
+ if glass and next(glass) then twin,slot,nt=twinPanes(q,repaint,data,glass,iw,ih) end
+ local ih2=ih+math.ceil(nt/iw)
  local F,nf=table.remove(pool) or {},0
  for i=1,#q,10 do
   local f,x0,x1,h0,h1,z0,z1,px,py=q[i],q[i+1],q[i+2],q[i+3],q[i+4],q[i+5],q[i+6],q[i+7],q[i+8]
   if repaint[i] then px,py=q[repaint[i]+7],q[repaint[i]+8] end
-  local u,v=(px+.5)/iw,(py+.5)/ih
+  if twin[i] then px,py=twin[i]%iw,ih+math.floor(twin[i]/iw) end
+  local u,v=(px+.5)/iw,(py+.5)/ih2
   local s=SHADE[f] or 1
   if (q[i+9] or 0)>0 then s=q[i+9]/100 end
   local X0,X1,H0,H1,Z0,Z1=ox+x0,ox+x1,oy+h0,oy+h1,oz+z0,oz+z1
@@ -288,7 +372,19 @@ function M.mesh(bld,data,img)
  end
  local mesh=nf>0 and FlatMesh.mesh(F,nf) or nil
  pool[#pool+1]=F
- return mesh
+ if not mesh or nt==0 then return mesh end
+ local data2=love.image.newImageData(iw,ih2)
+ data2:paste(data,0,0,0,0,iw,ih)
+ local twins={}
+ for t,k in pairs(slot)do
+  local x,y=k%iw,ih+math.floor(k/iw)
+  data2:setPixel(x,y,data:getPixel(t%iw,math.floor(t/iw)))
+  twins[#twins+1]=y*iw+x+1
+ end
+ table.sort(twins)
+ local img2=love.graphics.newImage(data2)
+ img2:setFilter('nearest','nearest')
+ return mesh,data2,img2,twins
 end
 
 return M

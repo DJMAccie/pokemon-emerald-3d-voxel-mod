@@ -798,9 +798,12 @@ function M.mesh(bld, cells)
   end
  end
  if bld.voxels then
-  local mesh = V.require('BuildingVoxels').mesh(bld, data, img)
-  if not mesh then img:release(); if data.release then data:release() end; return nil end
-  return { mesh = mesh, image = img, imageData = data, bld = bld }
+  local glass = V.require('GlassMask').buildingSet(data, cells, bld)
+  local mesh, data2, img2, twins = V.require('BuildingVoxels').mesh(bld, data, img, glass)
+  if not mesh or data2 then img:release(); if data.release then data:release() end end
+  if not mesh then return nil end
+  if data2 then data, img = data2, img2 end
+  return { mesh = mesh, image = img, imageData = data, twins = twins, bld = bld }
  end
  local spr = {
   width = bld.width * 16,

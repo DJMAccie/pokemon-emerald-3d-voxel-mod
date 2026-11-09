@@ -201,9 +201,7 @@ local function overridesFor(id)
   return t[id]
 end
 
-local function bake(key, w, h, px0, inF, tag, ov, pic)
-  local hit = imageCache[key]
-  if hit ~= nil then return hit or nil end
+local function collect(w, h, px0, inF, ov)
   local comps, stats = detect(w, h, px0, inF)
   local list = {}
   for _, c in ipairs(comps) do
@@ -226,6 +224,14 @@ local function bake(key, w, h, px0, inF, tag, ov, pic)
       end
     end
   end
+  return list, comps, stats
+end
+
+local function bake(key, w, h, px0, inF, tag, ov, pic, extra)
+  local hit = imageCache[key]
+  if hit ~= nil then return hit or nil end
+  local list, comps, stats = collect(w, h, px0, inF, ov)
+  if extra then for _, p in ipairs(extra) do list[#list + 1] = p end end
   local texture = pixelTexture(list, w, h)
   imageCache[key] = texture
   if GlassMask.dump then
@@ -238,12 +244,7 @@ local function bake(key, w, h, px0, inF, tag, ov, pic)
   return texture or nil
 end
 
-function GlassMask.building(m, cells, bld)
-  local data = m and m.imageData
-  if not (data and m.image) then return nil end
-  local id = tostring(bld.name or bld.kind or bld.model or "?")
-  local ov = overridesFor(id)
-  if ov and ov.off then return nil end
+local function buildingSearch(data, cells, bld)
   local w, h = data:getDimensions()
   local inF = {}
   for dy = 0, bld.depth - 1 do
@@ -259,8 +260,32 @@ function GlassMask.building(m, cells, bld)
     local r, g, b = data:getPixel(x, y)
     return math.floor(r * 255 + 0.5), math.floor(g * 255 + 0.5), math.floor(b * 255 + 0.5)
   end
+  return w, h, inF, px0
+end
+
+local function buildingId(bld) return tostring(bld.name or bld.kind or bld.model or "?") end
+
+-- The lit texels of a building's picture as a set of pixel indices (y * w + x + 1); nil when it has no windows.
+function GlassMask.buildingSet(data, cells, bld)
+  local ov = overridesFor(buildingId(bld))
+  if ov and ov.off then return nil end
+  local w, h, inF, px0 = buildingSearch(data, cells, bld)
+  local list = collect(w, h, px0, inF, ov)
+  local set = {}
+  for _, p in ipairs(list) do set[p] = true end
+  return set
+end
+
+-- m.twins: extra picture texels (copies of pane colours, made by BuildingVoxels) that light with the glass.
+function GlassMask.building(m, cells, bld)
+  local data = m and m.imageData
+  if not (data and m.image) then return nil end
+  local id = buildingId(bld)
+  local ov = overridesFor(id)
+  if ov and ov.off then return nil end
+  local w, h, inF, px0 = buildingSearch(data, cells, bld)
   return bake(m.image, w, h, px0, inF,
-    string.format("%s cell %d,%d", id, bld.cx, bld.cy), ov, data)
+    string.format("%s cell %d,%d", id, bld.cx, bld.cy), ov, data, m.twins)
 end
 
 local paneCache = setmetatable({}, { __mode = "k" })
