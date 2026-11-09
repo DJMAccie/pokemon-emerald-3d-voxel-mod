@@ -18,7 +18,7 @@
 --                       (+ Leader via party menu hint)
 --   Wilds    -> enabled, spawn_density, random_encounters,
 --                       water_spawns, cave_spawns, sprite_style, sprite_fade,
---                       town_pokemon, ambient_flyers, pokemon_grass_render_mode,
+--                       town_pokemon, ambient_flyers, all_species, pokemon_grass_render_mode,
 --                       wild_silhouettes,
 --                       overworld_catching, catch_throw_key, catch_cycle_key,
 --                       catch_throw_combo, catch_cycle_combo, catch_hud_size,
@@ -147,6 +147,13 @@ return {
     type = "toggle",
     default = true,
     description = "Adds peaceful Pokemon to safe towns and interiors. They behave like NPCs and cannot start battles.",
+  },
+  {
+    key = "all_species",
+    label = "Every Pokemon",
+    type = "toggle",
+    default = true,
+    description = "All 386 Gen 1-3 Pokemon live in the world: the ones Emerald's own tables lack join each route, cave and sea by habitat and level, and the legendaries wait in one place each. Off = Emerald's tables only.",
   },
   {
     key = "ambient_flyers",

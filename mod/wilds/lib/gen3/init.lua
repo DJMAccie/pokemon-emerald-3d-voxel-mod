@@ -34,14 +34,40 @@ return function(mod)
  local sprite=Presentation.sprite
  local Followers=loadfile('followers')(mod,Actors,Presentation,simulationBusy)
  local Flyers=loadfile('flyers')(mod,Actors,Presentation,get)
+ -- Every Gen 1-3 species: rows {nat,lo,hi,weight} per map/terrain that Emerald's own tables lack (tools/wild_extras.py).
+ local Extras=(function()local src=mod:read('wilds/data/wild_extras.lua');return src and assert((loadstring or load)(src,'@wilds/wild_extras'))()or{maps={},unique={}}end)()
+ local Dex=require('src.core.game3.dex')
+ local function extraRows(map,terrain)
+  local m=get('all_species')and Extras.maps[tostring(map)]
+  return m and m[terrain=='water'and'water'or'land']
+ end
+ local function extraWeight(rows)local t=0;for _,r in ipairs(rows)do t=t+r[4]end;return t end
+ -- one weighted pick: species (internal id) + level; nil for a unique species that is already caught (or, single, already out)
+ local function pickExtra(rows,single)
+  local roll=love.math.random(extraWeight(rows));local row
+  for _,r in ipairs(rows)do roll=roll-r[4];if roll<=0 then row=r;break end end
+  local species=row and Pokemon.speciesFromNational(row[1]);if not species or not Pokemon.name(species)then return nil end
+  if Extras.unique[row[1]]then
+   local g=game();if g and g.session and Dex.isCaught(g.session.dex,species)then return nil end
+   if single then for _,r in pairs(S.spawns)do if r.species==species then return nil end end end
+  end
+  return species,love.math.random(row[2],math.max(row[2],row[3]))
+ end
  local function sample(map,terrain)
   Encounter.ensureLoaded();local t=Encounter.tableFor(map)
   local area=t and(terrain=='water'and t.water or terrain~='water'and(t.land or t.grass))
   local slots=area and (area.slots or area.mons or area)
-  if not slots or #slots==0 then return nil end
+  local extras=extraRows(map,terrain)
+  if(not slots or #slots==0)and not extras then return nil end
+  slots=slots or{}
   local weights=terrain=='water' and {60,30,5,4,1}or{20,20,10,10,10,10,5,5,4,4,1,1}
   local total=0;for i in ipairs(slots)do total=total+(weights[i]or 1)end
-  local roll=love.math.random(total);local entry
+  local roll=love.math.random(total+(extras and extraWeight(extras)or 0))
+  if roll>total then
+   local species,level=pickExtra(extras,true);if not species then return nil end
+   return Identity.assign({species=species,level=level,behavior=Rules.behavior(get,love.math.random)})
+  end
+  local entry
   for i,row in ipairs(slots)do roll=roll-(weights[i]or 1);if roll<=0 then entry=row;break end end
   local species=tonumber(entry and (entry.species or entry[1]));if not species or not Pokemon.name(species)then return nil end
   local lo=math.max(1,tonumber(entry.minLevel or entry.level or entry[2])or 1)
@@ -341,6 +367,16 @@ return function(mod)
  mod.hooks:wrap('encounter.roll',function(nextFn,def,ctx)
   if not Rules.randomAllowed(get,ctx and ctx.terrain)then return nil end
   return nextFn(def,ctx)
+ end)
+ -- the classic grass/surf step encounters draw from the same extended pool, in the same share as the visible spawns
+ mod.hooks:wrap('encounter.species',function(nextFn,enc,ctx)
+  local out=nextFn(enc,ctx)
+  local rows=out and ctx and extraRows(ctx.mapId,ctx.terrain)
+  if rows and love.math.random(100+extraWeight(rows))>100 then
+   local species,level=pickExtra(rows,false)
+   if species then return{species=Pokemon.keyName(species),speciesId=species,level=level}end
+  end
+  return out
  end)
  mod.hooks:wrap('render.hud',function(nextFn,g,viewport)
   nextFn(g,viewport)
