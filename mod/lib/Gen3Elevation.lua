@@ -96,6 +96,7 @@ function M.field(def)
   assert(l.width>=drawn.w and l.width<=drawn.w+1 and l.height>=drawn.h and l.height<=drawn.h+1,'Height-map dimensions disagree with '..def.id)
   local f={width=l.width,height=l.height,cells={},groups={},flights={},conflicts={},classes={},signature=signature}
   local dirs={N={0,-1},S={0,1},E={1,0},W={-1,0}}
+  local byMap=V.require('Gen3ShapesByMap').shapes[def.id]
   for y=0,l.height-1 do for x=0,l.width-1 do
    local raw=l:cellAt(x,y);local k=math.min(x,drawn.w-1)..':'..math.min(y,drawn.h-1)
    local zi,a,fall=drawn.cells[k],drawn.arrows[k],drawn.waterfalls[k]
@@ -104,9 +105,22 @@ function M.field(def)
    local cls=a and 'FACE' or shape.kind=='water' and 'WATER' or raw.elev==15 and 'DECK' or shape.kind=='cliff' and 'MASS' or 'PLATEAU'
    if not (zi or a) then cls='OTHER' end
    local c={x=x,y=y,height=h,pin=h,anchor=true,kind=shape.kind,layer=raw.elev,behavior=behaviors[raw.mid],
-    floor=zi~=nil and raw.coll~=7,cls=cls,waterfall=fall~=nil,object=drawn.objects[k],zone=zi,step=a and a.stairs or false}
+    floor=zi~=nil and raw.coll~=7,lathe=type(byMap)=='table' and type(byMap[raw.mid])=='table' and byMap[raw.mid].kind=='lathe',cls=cls,waterfall=fall~=nil,object=drawn.objects[k],zone=zi,step=a and a.stairs or false}
    if c.step then c.low=a.lo*M.PIN_PX;c.high=a.hi*M.PIN_PX;c.height=c.low;c.stairUp=dirs[a.dir];c.treads=4 end
    f.cells[Levels.key(x,y)]=c;f.classes[cls]=(f.classes[cls] or 0)+1
+  end end
+  -- an object pin whose object is gone (plain walkable ground) or a lathe (draws itself whole) takes the ground around it
+  local seen={}
+  for _,c0 in pairs(f.cells)do if c0.object and not seen[c0] then
+   local group,stack,gone,ground={},{c0},true,nil;seen[c0]=true
+   while #stack>0 do local c=table.remove(stack);group[#group+1]=c
+    if not (c.lathe or (c.floor and c.kind=='flat')) then gone=false end
+    for _,d in pairs(dirs)do local n=f.cells[Levels.key(c.x+d[1],c.y+d[2])]
+     if n and n.object and n.height==c.height then if not seen[n] then seen[n]=true;stack[#stack+1]=n end
+     elseif n and n.cls=='PLATEAU' and not n.object then ground=math.min(ground or n.height,n.height) end
+    end
+   end
+   if gone and ground and ground<c0.height then for _,c in ipairs(group)do c.height,c.pin,c.object=ground,ground,nil end;M.goneObjects=(M.goneObjects or 0)+#group end
   end end
   M.classes[def.id]=f.classes;cache[l]=f;return f
  end

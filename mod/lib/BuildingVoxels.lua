@@ -5,6 +5,7 @@ local FlatMesh=V.require('FlatMesh')
 local Dome=V.require('BuildingDome')
 local M={}
 M.REPAINT_GROUND=8
+M.REPAINT_SHARE=.05
 
 M.MODELS={'frontier_gate','ferry_birth_island','ferry_navel_rock','trainer_hill_penthouse','abandoned_ship_wreck','littleroot_house_brendan','littleroot_house_may','birch_lab','devon_corp','lilycove_museum','weather_institute','fortree_treehouse','sootopolis_cone','sootopolis_box','sootopolis_box2','pacifidlog_hut','pokemon_center','poke_mart'}
 M.FAMILY={pokemon_center=true,poke_mart=true,fortree_treehouse=true,sootopolis_cone=true,sootopolis_box=true,sootopolis_box2=true,pacifidlog_hut=true}
@@ -224,6 +225,16 @@ function M.mesh(bld,data,img)
      if isGround(q[i+7],q[i+8]) then bad[#bad+1]=i else walls[#walls+1]=i end
     end
    end
+   -- a ground colour that covers a real share of the walls is the building's own material (Rustboro brick = its paving)
+   local area,total={},0
+   local function size(i)local f=q[i];return ((f==1 or f==2) and q[i+2]-q[i+1] or math.abs(q[i+6]-q[i+5]))*(q[i+4]-q[i+3]) end
+   for _,i in ipairs(walls)do total=total+size(i) end
+   for _,i in ipairs(bad)do local k=q[i+7]*4096+q[i+8];area[k]=(area[k] or 0)+size(i);total=total+size(i) end
+   local leak={}
+   for _,i in ipairs(bad)do
+    if area[q[i+7]*4096+q[i+8]]>M.REPAINT_SHARE*total then walls[#walls+1]=i else leak[#leak+1]=i end
+   end
+   bad=leak
    local bucket={}
    for _,j in ipairs(walls)do
     local fj=q[j];local sj=fj~=1 and fj~=2
