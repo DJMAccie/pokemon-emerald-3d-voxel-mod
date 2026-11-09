@@ -3,7 +3,7 @@
 Pokémon Emerald rebuilt as a 3D voxel world. You walk the same Hoenn, but the maps stand up in three dimensions,
 with a camera you can turn. A mod for gen1recomp, the Gen 1-3 native recompilation engine.
 
-**Status: alpha 0.1.0.** Nearly the whole of Hoenn is voxelized and 3D battles work.
+**Status: alpha 0.2.0.** Nearly the whole of Hoenn is voxelized, every Gen 1-3 Pokémon walks the overworld, and 3D battles work.
 Project page: <https://petyabouianov.com/emerald-voxel> · Code: <https://github.com/DJMAccie/pokemon-emerald-3d-voxel-mod>
 
 ## What it does
@@ -11,7 +11,11 @@ Project page: <https://petyabouianov.com/emerald-voxel> · Code: <https://github
 - **Voxel overworld.** Routes, towns, buildings, caves and interiors are built from Emerald's own tiles, block by block.
   Heights come from height maps checked tile by tile (165 maps), so cliffs, stairs and caves follow the art.
 - **Free camera.** Several camera levels, from the classic overview to a close orbit and first person.
-- **Pokémon in the overworld.** Wild Pokémon walk the routes, and your lead Pokémon follows you.
+- **Pokémon in the overworld.** Wild Pokémon walk the routes and follow you as you move, and your lead Pokémon follows you.
+  Birds circle in the sky, and Pokémon wander the towns, houses and Pokémon Centers.
+- **All 386 Pokémon.** The option *Every Pokemon* (on by default) adds Gen 1-3 species, Kanto and Johto too, to the wild
+  pools, and *National Dex* unlocks the National Pokédex from the start. Turn either off for plain Emerald.
+- **Rooms with real walls.** Indoor back walls, clocks, pictures, stair doorways and shop shells are drawn in all 328 interiors.
 - **Day and night.** The sky follows your computer's clock: sun, moon, and street lamps that come on after dark.
 - **Cinematic Fly.** HM Fly lifts into an aerial camera over the whole region.
 - **No border flash.** Neighbouring maps are built before you reach the edge.
@@ -21,7 +25,7 @@ Project page: <https://petyabouianov.com/emerald-voxel> · Code: <https://github
 ## Install
 
 1. Install gen1recomp and import your own legally owned **Pokémon Emerald** ROM.
-2. Download `emerald_3d_voxel_mod-0.1.0.zip` from the [releases page](https://github.com/DJMAccie/pokemon-emerald-3d-voxel-mod/releases),
+2. Download `emerald_3d_voxel_mod-0.2.0.zip` from the [releases page](https://github.com/DJMAccie/pokemon-emerald-3d-voxel-mod/releases),
    unzip it and copy the single folder `emerald_3d_voxel_mod` into the game's `mods` folder
    (macOS: `~/Library/Application Support/pokemon-love2d/mods/`).
 3. Start the game. Turn the mod on in the launcher's mods tab if it is not on already.

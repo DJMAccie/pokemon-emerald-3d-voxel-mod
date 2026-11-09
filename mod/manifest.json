@@ -1,7 +1,7 @@
 {
   "id": "emerald_3d_voxel_mod",
   "name": "Emerald 3D Voxel Mod",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "github": "DJMAccie/pokemon-emerald-3d-voxel-mod",
   "api": 2,
   "entry": "main.lua",
