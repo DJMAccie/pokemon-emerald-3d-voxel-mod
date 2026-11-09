@@ -146,7 +146,7 @@ return {
     label = "Town Pokemon",
     type = "toggle",
     default = true,
-    description = "Adds peaceful Pokemon to safe towns and interiors. They behave like NPCs and cannot start battles.",
+    description = "Adds a few peaceful Gen 1-3 Pokemon to each Hoenn town and to houses and Pokemon Centers (the list is in wilds/data/town_pokemon.lua). They behave like NPCs and cannot start battles.",
   },
   {
     key = "all_species",

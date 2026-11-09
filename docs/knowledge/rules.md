@@ -140,3 +140,9 @@ Source: Petya 2026-11-03: 'alle steen tiles een (vaak ronde) 3d vorm'; over de a
 ### R-52 Hoogtekaarten lezen: Petya's inkt
 Rule: rode pijl op een tegel = de kant waar die tegel omhoog gaat (pijlpunt = hoog); schuine pijl = hoekhelling. Zijbanden van bergen zijn vaak schuin. Kleine rotsjes met pijlen naar het midden = piramide (hoektegels naar de top, top 1). Een verticale streep '|' = het cijfer 1. Een omkaderd vlak = dat hele vlak heeft het getal erin. Een streep door een oud getal = doorgestreept. Tel bij twijfel de wanden: 1 wandtegel = 1 hoogte; oude inkt kan een verschrijving zijn (Mt Pyre plein 16 was 19).
 Source: Petya 2026-11-03: "ik hoop dat je er ook van leert" / "meeste suggesties die je had klopten"
+
+## Wilds
+
+### R-53 Town Pokemon stay on and are Gen 1-3
+Rule: Option town_pokemon defaults to on. Hoenn towns (3 each), houses and Pokemon Centers (2 each, town pool + home pool) get peaceful Gen 1-3 species from mod/wilds/data/town_pokemon.lua (national dex numbers, small or medium ones only). No Kanto leftovers, none in Trick House rooms. Never switch the option off in the game or the trailer to hide a bad species list: fix the list.
+Source: Petya 2026-11-09: "I actually want the town pokemon on! and also to have them be from gen 1-3"

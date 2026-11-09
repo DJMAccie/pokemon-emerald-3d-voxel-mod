@@ -105,11 +105,25 @@ return function(mod)
   end
   return seen
  end
- local towns={PALLET_TOWN=16,VIRIDIAN_CITY=19,PEWTER_CITY=16,CERULEAN_CITY=52,VERMILION_CITY=25,LAVENDER_TOWN=104,CELADON_CITY=133,FUCHSIA_CITY=54,SAFFRON_CITY=52,CINNABAR_ISLAND=58,INDIGO_PLATEAU=16}
- local function ambientSpecies()
-  local map=tostring(Map.current):gsub('^FR_','');local species=towns[map]
-  if not species and(map:find('POKECENTER',1,true)or map:find('HOUSE',1,true))then species=52 end
-  return species
+ -- Town Pokemon (data/town_pokemon.lua): a Gen 1-3 pool per Hoenn town; houses and Pokemon Centers take the town's pool plus `home`.
+ local Town=(function()local src=mod:read('wilds/data/town_pokemon.lua');return src and assert((loadstring or load)(src,'@wilds/town_pokemon'))()or{towns={},home={}}end)()
+ local townPools={}
+ local function ambientPool()
+  local map=tostring(Map.current);local pool=townPools[map]
+  if pool==nil then
+   local indoor=map:find('POKEMON_CENTER_1F',1,true)or map:find('HOUSE',1,true)and not map:find('TRICK_HOUSE',1,true)
+   pool={cap=indoor and 2 or 3}
+   local function add(list)for _,nat in ipairs(list or{})do local s=Pokemon.speciesFromNational(nat);if s and Pokemon.name(s)then pool[#pool+1]=s end end end
+   if indoor then for k,list in pairs(Town.towns)do if map:sub(1,#k+1)==k..'_'then add(list)end end;add(Town.home)else add(Town.towns[map])end
+   if #pool==0 then pool=false end
+   townPools[map]=pool
+  end
+  return pool or nil
+ end
+ local function townPick(pool)
+  local have={};for _,r in pairs(S.spawns)do if r.ambient then have[r.species]=true end end
+  local free={};for _,s in ipairs(pool)do if not have[s]then free[#free+1]=s end end
+  local list=#free>0 and free or pool;return list[love.math.random(#list)]
  end
  -- Spawns live around the player: seeded in a +-10 x +-8 window on arrival, refilled in a ring outside the
  -- view (so a wild never pops in on screen) and dropped once the player has left them behind, else a long
@@ -122,8 +136,8 @@ return function(mod)
   end
   local occupied,count,ambient={},0,0
   for _,r in pairs(S.spawns)do occupied[r.cellX..':'..r.cellY]=true;if r.ambient then ambient=ambient+1 else count=count+1 end end
-  local target=Rules.count(get);local town=get('town_pokemon')and ambientSpecies()
-  if count>=target and(not town or ambient>=2)then return end
+  local target=Rules.count(get);local town=get('town_pokemon')and ambientPool();local townCap=town and town.cap or 0
+  if count>=target and(not town or ambient>=townCap)then return end
   local connected=reachable()
   local mapName=tostring(Map.current):upper();local cave=mapName:find('CAVE',1,true)or mapName:find('MT_',1,true)or mapName:find('TUNNEL',1,true)or mapName:find('VICTORY_ROAD',1,true)
   for _=1,240 do
@@ -137,11 +151,11 @@ return function(mod)
     if count<target and terrain and Rules.visibleTerrain(get,terrain)and validCell(x,y,terrain)and(not cave or terrain=='water'or connected[key]or allowScenery)then
      local e=sample(Map.current,terrain)
      if e and S.spawn(e.species,e.level,x,y,terrain,{behavior=e.behavior,scenery=scenery,personality=e.personality,shiny=e.shiny})then occupied[key]=true;count=count+1 end
-    elseif town and ambient<2 and not terrain and connected[key]and validCell(x,y,'land')then
-     if S.spawn(town,5,x,y,'town',{ambient=true,behavior='wander'})then occupied[key]=true;ambient=ambient+1 end
+    elseif town and ambient<townCap and not terrain and connected[key]and validCell(x,y,'land')then
+     if S.spawn(townPick(town),5,x,y,'town',{ambient=true,behavior='wander'})then occupied[key]=true;ambient=ambient+1 end
     end
    end
-   if count>=target and(not town or ambient>=2)then break end
+   if count>=target and(not town or ambient>=townCap)then break end
   end
  end
  function S.encounter(row)
