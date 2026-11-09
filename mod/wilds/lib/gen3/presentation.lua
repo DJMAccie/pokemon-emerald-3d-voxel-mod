@@ -59,21 +59,29 @@ return function(mod,Actors)
   if not cache[key]then
    local spr=Actors.sprites[gid];local w,h=spr.width,spr.height
    local c=love.graphics.newCanvas(w,h*9)
-   love.graphics.push('all');love.graphics.setCanvas(c);love.graphics.clear(0,0,0,0)
-   if hidden then
-    love.graphics.setColor(.12,.18,.22,.7)
-    for i=0,8 do love.graphics.ellipse('fill',w/2,i*h+h-4,6,2.5)end
-   else
-    if silhouette then
-     shader=shader or love.graphics.newShader('vec4 effect(vec4 color, Image tex, vec2 tc, vec2 sc) { return vec4(color.rgb, Texel(tex, tc).a * color.a); }')
-     love.graphics.setShader(shader);love.graphics.setColor(.12,.18,.22,alpha)
-    else love.graphics.setColor(1,1,1,alpha)end
-    for i=0,8 do
-     love.graphics.setScissor(0,i*h,w,h-cut)
-     love.graphics.draw(spr.image,spr.quads[i],0,i*h)
+   love.graphics.push('all')
+   -- Front-pic sprites have one frame: repeat it for all nine; a draw error must not leak the push.
+   local ok=pcall(function()
+    love.graphics.setCanvas(c);love.graphics.clear(0,0,0,0)
+    if hidden then
+     love.graphics.setColor(.12,.18,.22,.7)
+     for i=0,8 do love.graphics.ellipse('fill',w/2,i*h+h-4,6,2.5)end
+    else
+     if silhouette then
+      shader=shader or love.graphics.newShader('vec4 effect(vec4 color, Image tex, vec2 tc, vec2 sc) { return vec4(color.rgb, Texel(tex, tc).a * color.a); }')
+      love.graphics.setShader(shader);love.graphics.setColor(.12,.18,.22,alpha)
+     else love.graphics.setColor(1,1,1,alpha)end
+     for i=0,8 do
+      love.graphics.setScissor(0,i*h,w,h-cut)
+      love.graphics.draw(spr.image,spr.quads[i]or spr.quads[0],0,i*h)
+     end
     end
-   end
-   love.graphics.pop();c:setFilter('nearest','nearest');nextId=nextId+1;Actors.sprite(nextId,c,w,h,9,hidden and 0 or spr.groundPadding,not hidden and spr.groundPaddingByFrame or nil);cache[key]=nextId
+   end)
+   love.graphics.pop()
+   if ok then
+    c:setFilter('nearest','nearest');nextId=nextId+1
+    Actors.sprite(nextId,c,w,h,9,hidden and 0 or spr.groundPadding,not hidden and spr.frameCount==9 and spr.groundPaddingByFrame or nil);cache[key]=nextId
+   else cache[key]=gid end
   end
   row.graphicsId=cache[key]
  end

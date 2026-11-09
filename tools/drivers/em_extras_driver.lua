@@ -45,6 +45,25 @@ return function(game)
  print('[ext] sprite land missing',#bad.land,table.concat(bad.land,' '))
  print('[ext] sprite water missing',#bad.water,table.concat(bad.water,' '))
  if #bad.land>0 or #bad.water>0 then fail('species without a sprite') end
+ -- A2) the presentation pass (S.update -> Presentation.apply) for all 386: no draw error, every sprite ends with nine frames
+ --     (the species without HGSS art are one-frame front pics: task 37b, a nil quad leaked a push and dropped the scene to 2D)
+ do
+  local rows,short={},{}
+  for n=1,386 do
+   local sp=Pk.speciesFromNational(n)
+   local r=sp and S.spawn(sp,5,Player.cellX+6,Player.cellY+6,'land',{behavior='idle'})
+   if r then r.nextMove=1e9;rows[#rows+1]=r end
+  end
+  local ok,err=pcall(S.update,1/60)
+  if not ok then fail('presentation pass raised',err) end
+  for _,r in ipairs(rows) do
+   local spr=ex.gen3Actors.sprites[r.graphicsId]
+   if not spr or spr.frameCount~=9 then short[#short+1]=tostring(r.species) end
+   S.remove(r)
+  end
+  print('[ext] presentation rows',#rows,'without nine frames',#short)
+  if #short>0 then fail('presentation left sprites without nine frames',table.concat(short,',')) end
+ end
  -- shot of the species without HGSS art (they fall back to Actors.front), 3 rows of 9, on Route 101 (towns hide wilds)
  do
   local id='EM_ROUTE101'
