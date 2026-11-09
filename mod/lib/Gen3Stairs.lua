@@ -33,17 +33,24 @@ function M.prepare(cells)
 end
 -- Brendan's/May's house 1F: the stair doorway sits in the wall's lowest row, but the wall itself stands one row back
 -- (at the kitchen's wall face); the wall-base tiles beside the doorway would stand up as slabs or lie as pale mats, so they become floor
+-- Their art is the wall one row lower: the tile above is the top half and the base tile the bottom half of the wall at the kitchen's face
 function M.flatten(cells)
  for _,s in pairs(cells)do
   if s.pair=='building__brendans_mays_house' and M.wallKind(s)=='up' then
+   local face=s.cy*16
    for dx=-2,2 do local n=cells[(s.cx+dx)..':'..s.cy]
     if n and n~=s and n.pair==s.pair and n.collision==7 and not n.prop and not M.wallKind(n) then
-     n.shape={kind='flat',groundMid=0x201};n.column=nil
+     local u0,u1=dx==1 and .25 or nil,dx==-1 and .75 or nil -- the tiles beside the doorway carry 4 px of its gold frame, which the flat frame replaces
+     n.shape={kind='flat',groundMid=0x201};n.column=nil;n.wallArt={top=16,low=0,front=face,u0=u0,u1=u1}
+     local t=cells[n.cx..':'..(n.cy-1)]
+     if t and t.pair==n.pair and t.collision==7 and not t.prop and not M.wallKind(t) then t.shape={kind='flat',groundMid=0x201};t.column=nil;t.wallArt={top=32,low=16,front=face,u0=u0,u1=u1} end
     end
    end
   end
  end
 end
+-- the 2F doorway down is wall art: its tile is drawn in the wall like the tiles beside it
+function M.artDown(c) return c.pair=='building__brendans_mays_house' and M.wallKind(c)=='down' end
 local function builder(c,emit,uvFor)
  local ox,oz=c.cx*16,c.cy*16
  local function tex(mid,x,y)
@@ -179,7 +186,7 @@ function M.appendWall(c,quad,uvFor,frameMid)
   front(x0,x1,0,hgt,riser,.55)
   front(x,x0,0,hgt+4,post,.9);front(x1,x+16,0,hgt+4,post,.9);front(x0,x1,hgt,hgt+4,post,.9)
  end
- if doorway and k=='down' then return true end -- the wall art already shows this doorway
+ if doorway and k=='down' then quad({{x,16,z+16},{x+16,16,z+16},{x+16,0,z+16},{x,0,z+16}},uv,1);return true end -- the wall art is this doorway
  if k=='up' then
   if doorway then frame(z+.03,30) end
   for i=0,3 do

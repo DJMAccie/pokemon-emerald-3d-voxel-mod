@@ -453,6 +453,33 @@ function M.fitWall(def,cells)
  local to=front and math.min(b[4]-16,front)-.12
  if to and to>b[2]+.5 then b[2]=to;p.meshes={} end
 end
+-- The two rows above the shell's back wall are the room's wall: wall-collision tiles the wall lists lack (clock, window, shelf, door) are drawn on that face
+function M.paintWall(def,cells)
+ local id=def and def.id or ''
+ if M.CABINS[id] or M.BACK_BY_MAP[id] then return end
+ local p=M.forMap(def)
+ if not p or p.cave or p.artBack or p.theme=='tree' or not p.top then return end
+ local z0=p.top;local face=math.floor((p.bounds[2]+.12)/16+.5)*16
+ if face-z0*16~=32 then return end
+ local TS,St=V.require('Gen3TileShape'),V.require('Gen3Stairs')
+ local function put(c,mid) c.wallArt={top=32-(c.cy-z0)*16,low=16-(c.cy-z0)*16,front=face,mid=mid} end
+ local fill={} -- homes: furniture against the wall (and a tile of it above): the wall behind is the room's plain wall tile of that row (labs and shops keep the shell colour, which matches their art)
+ for _,c in pairs(cells)do
+  if c.cy>=z0 and c.cy*16<face and not (c.stairs or c.wallArt or (c.column and c.column.indoor) or (p.voidCells and p.voidCells[c.cx..':'..c.cy])) then
+   local below=cells[c.cx..':'..(c.cy+1)]
+   if c.prop or (c.cy==z0 and below and below.prop and c.shape.kind=='flat' and (c.collision or 0)==7 and not c.shape.groundMid) then if p.theme=='home' then fill[#fill+1]=c end
+   elseif c.shape.kind=='flat' and (c.collision or 0)==7 and not (c.shape.reviewedSurface or c.shape.groundMid or St.wallKind(c)) and not TS.void(c) then put(c) end
+  end
+ end
+ local plain={}
+ for _,c in pairs(cells)do
+  if c.cy>=z0 and c.cy*16<face and not c.prop and (c.wallArt or (c.column and c.column.indoor)) and TS.plain(c) then local r=plain[c.cy] or {};plain[c.cy]=r;r[#r+1]=c end
+ end
+ for _,c in ipairs(fill)do local best
+  for _,q in ipairs(plain[c.cy] or {})do if q.pair==c.pair and q.ts==c.ts and (not best or math.abs(q.cx-c.cx)<math.abs(best.cx-c.cx)) then best=q end end
+  if best then put(c,best.mid) end
+ end
+end
 function M.setOpenings(p,openings)
  if not p then return end
  local keys={};for _,q in ipairs(openings or {})do keys[#keys+1]=table.concat(q,',')end;table.sort(keys)

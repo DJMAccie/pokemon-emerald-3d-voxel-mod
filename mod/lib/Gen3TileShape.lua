@@ -207,7 +207,10 @@ local function bands(c,rows) -- the tile's top `rows` pixel rows are each one co
  end
  return table.concat(sig,';')
 end
+M.void=void
+function M.plain(c) return c.ts and c.ts.imageData and c.ts.midToSlot[c.mid] and bands(c,16) or nil end -- every pixel row one colour: a plain wall tile
 local function adoptTops(cells)
+ local St=V and V.require('Gen3Stairs')
  local add,props,seen={},{},{}
  for _,c in pairs(cells)do
   local below=cells[c.cx..':'..(c.cy+1)]
@@ -217,6 +220,7 @@ local function adoptTops(cells)
    local two=cells[c.cx..':'..(c.cy+2)]
    if not (two and not two.prop and two.shape.kind=='roomWall' and two.pair==c.pair) then
     if below.prop then props[#props+1]=c
+    elseif St and St.artDown(below) then add[#add+1]={c,(profiles[c.secondary] or {}).floor}
     elseif s.kind=='roomWall' and not s.tall and not s.fullHeight and not s.sideArt and not s.trimTop then
      add[#add+1]={c,s.ground};local sig=bands(c,9);if sig then seen[sig]=true end
     end

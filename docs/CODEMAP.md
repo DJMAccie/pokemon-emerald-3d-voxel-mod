@@ -17,12 +17,12 @@ functions (`name@line`). Data tables are in `mod/data/` (generated; never read t
   - registerPlant@10 sub@18 pixel@22 colorKey@29 mask@30 solidPlant@51 plant@109 groupAwnings@209 groundProps@232 isGreen@273 profile@277 sideProfile@314 sideLedge@338 ownsFaces@397 ledgeFloor@405 ledge@424 hsh@504 tuftInfo@505 blades@553 tufts@568 append@599 image@718 release@738
 - `Gen3PinData` 45: 
 - `Gen3Recap` 63: Render recorded Quest Log scenery through the selected camera without moving the live player,
-- `Gen3Scene` 2583: Native FireRed art in the depth/shadow renderer
-  - isDeck@49 context@56 quad@60 uvFor@87 plane@101 flightAxis@106 flightTreads@125 swatch@177 wallColumn@183 nativeEffects@211 nativeRequired@215 releaseGeometry@230 tileIdentity@253 tilesetsReady@271 walkGate@295 directNeighbours@298 debugRegions@304 tourBounds@310 request@318 shiftedLathe@365 firstArea@383 build@384 [inside build, first calls: Budget.tick@400 Pairs.resolve@420 Tiles.get@458 SceneCache.key@462 Reef.join@465 BuildingModels.prepare@503 Elevation.daisPrepare@506 Decks.prepare@507 Stairs.flatten@510 Furniture.extract@511 Shapes.layout@519 Interior.fitWall@520 Interior.forMap@522 Outdoor.groundProps@534 Elevation.bind@540 Elevation.daisSettle@637 Decks.settle@638 Mass.append@774 Stairs.append@823 Lamp.is@830 Stairs.appendWall@835 Fence.append@1064 Gate.append@1098 Reef.append@1112 Mass.ground@1121 Terrain.append@1221 VoxelBuildings.append@1440 Roof.sideVisible@1538 Elevation.lift@1653 Furniture.append@1795 BuildingModels.mesh@1814 Budget.check@1818 CamClear.addQuads@1831] aheadRequest@1888 aheadHooks@1929 warmAhead@1940 prepare@1977 panesOf@2032 ink@2037 eyeUnderCrown@2050 terrain@2061 waterMeshes@2100 rideDust@2110 fastMesh@2137 cardMesh@2145 actor@2185 debugRaw@2243 builtBounds@2244 readyFor@2245 groundAt@2246 deckCut@2259 actors@2282 fieldEffects@2340 restore@2401 presentField@2412 draw@2419 invalidate@2566 release@2567
+- `Gen3Scene` 2589: Native FireRed art in the depth/shadow renderer
+  - isDeck@49 context@56 quad@60 uvFor@87 plane@101 flightAxis@106 flightTreads@125 swatch@177 wallColumn@183 nativeEffects@211 nativeRequired@215 releaseGeometry@230 tileIdentity@253 tilesetsReady@271 walkGate@295 directNeighbours@298 debugRegions@304 tourBounds@310 request@318 shiftedLathe@365 firstArea@383 build@384 [inside build, first calls: Budget.tick@400 Pairs.resolve@420 Tiles.get@458 SceneCache.key@462 Reef.join@465 BuildingModels.prepare@503 Elevation.daisPrepare@506 Decks.prepare@507 Stairs.flatten@510 Furniture.extract@511 Shapes.layout@519 Interior.fitWall@520 Interior.paintWall@521 Interior.forMap@523 Outdoor.groundProps@535 Elevation.bind@541 Elevation.daisSettle@638 Decks.settle@639 Mass.append@775 Stairs.append@829 Lamp.is@836 Stairs.appendWall@841 Fence.append@1070 Gate.append@1104 Reef.append@1118 Mass.ground@1127 Terrain.append@1227 VoxelBuildings.append@1446 Roof.sideVisible@1544 Elevation.lift@1659 Furniture.append@1801 BuildingModels.mesh@1820 Budget.check@1824 CamClear.addQuads@1837] aheadRequest@1894 aheadHooks@1935 warmAhead@1946 prepare@1983 panesOf@2038 ink@2043 eyeUnderCrown@2056 terrain@2067 waterMeshes@2106 rideDust@2116 fastMesh@2143 cardMesh@2151 actor@2191 debugRaw@2249 builtBounds@2250 readyFor@2251 groundAt@2252 deckCut@2265 actors@2288 fieldEffects@2346 restore@2407 presentField@2418 draw@2425 invalidate@2572 release@2573
 - `Gen3SceneCache` 24: Native layouts are immutable base cells plus sparse public overrides
 - `Gen3SceneOptions` 81: Shared presentation consumers for Game3
 - `Gen3ShapesByMap` 274: Every per-map metatile recipe: what a map's own tiles are built as. (Gen3Scene's SHAPE_BY_MAP block, moved out
-- `Gen3TileShape` 246: Emerald's native metatiles, scoped to their PRIMARY/SECONDARY tileset pair
+- `Gen3TileShape` 250: Emerald's native metatiles, scoped to their PRIMARY/SECONDARY tileset pair
 - `Gen3Tilesets` 27: The importer adds generated pairs to Versions only while importing a ROM
 - `RenderDistance` 39: A conservative world-space draw/build budget for the voxel neighborhood
 - `RenderRecovery` 16: Quarantine a broken scene, not the renderer for the rest of the session
@@ -43,7 +43,7 @@ functions (`name@line`). Data tables are in `mod/data/` (generated; never read t
 - `Gen3Rock` 934: Terrain rock as real rock
   - key@50 walk@51 lum@55 cave@78 bluff@86 handles@94 tile@161 isFace@194 floorOf@196 sideFloor@200 prepare@211 sub@446 groundSet@453 groundCount@481 occupancy@496 cleanPatch@518 segment@551 smoothPrep@588 flat@680 append@692 checkFloat@898
 - `Gen3RockSprites` 375: Overworld rocks that are actors
-- `Gen3Stairs` 212: Interior stairs: source-textured flights, back-wall doorways, steps and ladders
+- `Gen3Stairs` 219: Interior stairs: source-textured flights, back-wall doorways, steps and ladders
 - `Gen3Terrain` 158: Native General cliff masses
 - `VoxelHull` 477: Closed, greedy-meshed voxel volumes
 - `Water` 969: Voxel world mode
@@ -65,7 +65,8 @@ functions (`name@line`). Data tables are in `mod/data/` (generated; never read t
 - `Gen3Planter` 295: Battle Frontier flower planters
 - `Gen3RoofDetails` 114: Building-specific roof treatment
 - `Gen3VoxelBuildings` 227: Emerald buildings as pixel voxels
-- `InteriorDiorama` 498: Shared presentation-only room framing
+- `InteriorDiorama` 525: Shared presentation-only room framing
+  - profile@63 texture@175 surroundColour@184 surroundTexture@217 geometry@222 forMap@397 fitWall@438 paintWall@457 setOpenings@483 camera@491 configure@502 draw@505
 - `LandmarkModels` 201: Landmarks
 - `RoofEaves` 29: Closed, thin roof projections
 ### Objects, trees, props

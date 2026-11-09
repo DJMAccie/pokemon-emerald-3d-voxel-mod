@@ -518,6 +518,7 @@ local function build(req,cache,previous)
  end end
  Shapes.layout(cells)
  Interior.fitWall(def,cells)
+ Interior.paintWall(def,cells)
  do -- wall pieces (cabinet, fridge, counter...) learn where the wall behind them is, so Gen3PixelFurniture can seat them against it
   local ip=Interior.forMap(def);local shellZ=ip and ip.bounds and ip.bounds[2]+.12
   for _,p in ipairs(props)do if p.recipe.wallPiece then
@@ -775,6 +776,11 @@ local function build(req,cache,previous)
   end
   local starts={#b.v,#b.rv,#b.pv,#b.wv,#leaf}
   PROBE.cell=c
+  if c.wallArt and not c.stageHidden then -- wall art on the room's back face; u0/u1 trim the tile's frame post beside a stair doorway
+   local w=c.wallArt;local t=uvFor(ts,w.mid or c.mid);local ua,ub=w.u0 or 0,w.u1 or 1
+   if ua>0 or ub<1 then local l,r=t[1][1]+(t[2][1]-t[1][1])*ua,t[1][1]+(t[2][1]-t[1][1])*ub;t={{l,t[1][2]},{r,t[2][2]},{r,t[3][2]},{l,t[4][2]}} end
+   quad(b.v,b.i,{{x,w.top,w.front},{x+16,w.top,w.front},{x+16,w.low,w.front},{x,w.low,w.front}},t)
+  end
   local flight=flightAxis(c,cells)
   if c.bedPlanter then
    if not c.stageHidden then V.require('Gen3Planter').appendBed(c,function(p,t,sh)quad(b.v,b.i,p,t,sh)end,function(p,t,sh)quad(b.cv,b.ci,p,t,sh)end,uvFor,cells)end
