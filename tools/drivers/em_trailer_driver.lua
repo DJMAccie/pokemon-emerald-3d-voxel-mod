@@ -236,6 +236,7 @@ return function(game)
   if not only or only:find(shot.name,1,true) then
    local t0=realGet()
    cine=nil;hour=type(shot.hour)=='table' and shot.hour[1] or shot.hour or 12
+   do local TS=lib.require('TiltShift');TS.PRESETS[2].band=(shot.tilt and shot.tilt.band) or .25;TS.PRESETS[2].spacing=(shot.tilt and shot.tilt.spacing) or .0028 end -- shot.tilt={band=,spacing=}: a narrower, softer blur for wide shots
    if shot.seed then love.math.setRandomSeed(shot.seed) end -- wilds and sky birds are random: a seed makes a shot repeatable
    local ok,err=true,nil
    if not shot.keep then ok,err=pcall(function() assert(Map.load(nil,game,shot.map,{x=shot.x or 1,y=shot.y or 1,facing=shot.facing or 'down'})) end) end
