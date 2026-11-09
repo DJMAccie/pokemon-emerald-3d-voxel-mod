@@ -350,6 +350,8 @@ return function(mod)
    Catching.resetInput()
    if S.shared and S.shared.role=='host'and S.map then local old,rows=Shared.snapshot();S.cache[old]=rows end
    S.map=Map.current;S.spawns={};Actors.clear();Followers.reset();Flyers.reset();S.signature=signature()
+   -- Every Pokemon + National Dex: the Pokedex screen lists 386 from the start (sets Emerald's own flag; never cleared)
+   if get('all_species')and get('national_dex')and g.session and not Dex.nationalEnabled(g.session)then Dex.enableNational(g.session)end
    if S.shared and S.cache[S.map]then Shared.apply(S.map,S.cache[S.map])else populate(true)end
   end
   dt=math.min(.1,math.max(0,dt or 0));S.elapsed=S.elapsed+dt

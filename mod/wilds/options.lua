@@ -18,7 +18,7 @@
 --                       (+ Leader via party menu hint)
 --   Wilds    -> enabled, spawn_density, random_encounters,
 --                       water_spawns, cave_spawns, sprite_style, sprite_fade,
---                       town_pokemon, ambient_flyers, all_species, pokemon_grass_render_mode,
+--                       town_pokemon, ambient_flyers, all_species, national_dex, pokemon_grass_render_mode,
 --                       wild_silhouettes,
 --                       overworld_catching, catch_throw_key, catch_cycle_key,
 --                       catch_throw_combo, catch_cycle_combo, catch_hud_size,
@@ -154,6 +154,13 @@ return {
     type = "toggle",
     default = true,
     description = "All 386 Gen 1-3 Pokemon live in the world: the ones Emerald's own tables lack join each route, cave and sea by habitat and level, and the legendaries wait in one place each. Off = Emerald's tables only.",
+  },
+  {
+    key = "national_dex",
+    label = "National Dex",
+    type = "toggle",
+    default = true,
+    description = "With Every Pokemon on, the Pokedex lists all 386 from the start (Emerald normally unlocks the National Dex after the Hall of Fame). It sets Emerald's own National Dex flag the first time a map loads, and stays set if you turn this off.",
   },
   {
     key = "ambient_flyers",
