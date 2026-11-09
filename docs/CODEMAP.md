@@ -65,8 +65,8 @@ functions (`name@line`). Data tables are in `mod/data/` (generated; never read t
 - `Gen3Planter` 295: Battle Frontier flower planters
 - `Gen3RoofDetails` 114: Building-specific roof treatment
 - `Gen3VoxelBuildings` 227: Emerald buildings as pixel voxels
-- `InteriorDiorama` 525: Shared presentation-only room framing
-  - profile@63 texture@175 surroundColour@184 surroundTexture@217 geometry@222 forMap@397 fitWall@438 paintWall@457 setOpenings@483 camera@491 configure@502 draw@505
+- `InteriorDiorama` 543: Shared presentation-only room framing
+  - profile@63 texture@175 surroundColour@184 surroundTexture@217 geometry@222 forMap@397 fitWall@438 paintWall@459 setOpenings@501 camera@509 configure@520 draw@523
 - `LandmarkModels` 201: Landmarks
 - `RoofEaves` 29: Closed, thin roof projections
 ### Objects, trees, props
@@ -185,7 +185,7 @@ functions (`name@line`). Data tables are in `mod/data/` (generated; never read t
 - `flyers` 146: Ambient flyers: a few peaceful birds crossing the sky over routes and towns. Plain billboard rows (not in
 - `followers` 125: Followers trace cells really traversed by the native player. Replacing the player's graphics leaves scripts, c
 - `identity` 59: Visible spawns keep one host-selected identity through drawing, battle and capture. No protocol extension or c
-- `init` 358: Native FireRed adapter. Rules use the same public settings as Gen1/Gen2; all map movement and battle/capture b
+- `init` 408: Native FireRed adapter. Rules use the same public settings as Gen1/Gen2; all map movement and battle/capture b
 - `presentation` 82: Native nine-frame art and presentation variants. Variants are baked sheets, so every renderer consuming OwSpri
 - `rules` 23: Pure option semantics shared by local and remote native simulation.
 - `settings` 25: All generations publish the same keys. Only the Gen3 overworld art default changes; the battle scene is never 

@@ -111,7 +111,7 @@ function M.profile(def)
   b={x0*16,z0*16,x1*16,z1*16}
   roomTop=z0
   local secondary=V.require('Gen3Tilesets').resolve(def.midLayout.pair,require('src.import.gba.versions').TILESET_PAIRS).secondary
-  if secondary=='lab' or secondary=='pokemon_center' or theme=='shop' or secondary=='rom_082d4d94' or secondary=='inside_ship' or secondary=='bike_shop' or secondary=='facility' or (secondary=='generic_building' and theme~='tree') then
+  if secondary=='lab' or secondary=='pokemon_center' or secondary=='shop' or theme=='shop' or secondary=='rom_082d4d94' or secondary=='inside_ship' or secondary=='bike_shop' or secondary=='facility' or (secondary=='generic_building' and theme~='tree') then
    b[2]=math.min(b[4]-16,(z0+2)*16)-.12
   end
   if def.midLayout.pair=='general__contest' then
@@ -453,27 +453,45 @@ function M.fitWall(def,cells)
  local to=front and math.min(b[4]-16,front)-.12
  if to and to>b[2]+.5 then b[2]=to;p.meshes={} end
 end
--- The two rows above the shell's back wall are the room's wall: wall-collision tiles the wall lists lack (clock, window, shelf, door) are drawn on that face
+-- The two wall rows are drawn on the shell's back face: wall-collision tiles the wall lists lack (clock, window, shelf, door) go there as flat art.
+-- The face stands at (top+2)*16, or one row in front of that when a stair doorway in the second row pulled it forward (lift 16):
+-- then the base row stands in front of the face and becomes floor, its art goes up on the face like the row above it
 function M.paintWall(def,cells)
  local id=def and def.id or ''
  if M.CABINS[id] or M.BACK_BY_MAP[id] then return end
  local p=M.forMap(def)
  if not p or p.cave or p.artBack or p.theme=='tree' or not p.top then return end
  local z0=p.top;local face=math.floor((p.bounds[2]+.12)/16+.5)*16
- if face-z0*16~=32 then return end
+ local lift=face-z0*16
+ if lift~=32 and lift~=16 then return end
  local TS,St=V.require('Gen3TileShape'),V.require('Gen3Stairs')
  local function put(c,mid) c.wallArt={top=32-(c.cy-z0)*16,low=16-(c.cy-z0)*16,front=face,mid=mid} end
+ local function floorOf(c) -- the plain floor tile two rows on (same pattern phase), else a neighbour's, else the room's floor
+  for _,d in ipairs({0,-1,1,-2,2,-3,3})do for dy=2,6,2 do local q=cells[(c.cx+d)..':'..(c.cy+dy)]
+   if q and q.ts==c.ts and q.shape.kind=='flat' and (q.collision or 0)==0 and not (q.prop or q.stairs or q.wallArt or q.shape.groundMid) then return q.mid end end end
+  return (V.require('Gen3EmeraldInteriors')[c.secondary] or {}).floor
+ end
  local fill={} -- homes: furniture against the wall (and a tile of it above): the wall behind is the room's plain wall tile of that row (labs and shops keep the shell colour, which matches their art)
  for _,c in pairs(cells)do
-  if c.cy>=z0 and c.cy*16<face and not (c.stairs or c.wallArt or (c.column and c.column.indoor) or (p.voidCells and p.voidCells[c.cx..':'..c.cy])) then
+  if c.cy>=z0 and c.cy<z0+2 and not (c.stairs or c.wallArt or (p.voidCells and p.voidCells[c.cx..':'..c.cy])) then
+   local column=c.column and c.column.indoor
    local below=cells[c.cx..':'..(c.cy+1)]
-   if c.prop or (c.cy==z0 and below and below.prop and c.shape.kind=='flat' and (c.collision or 0)==7 and not c.shape.groundMid) then if p.theme=='home' then fill[#fill+1]=c end
-   elseif c.shape.kind=='flat' and (c.collision or 0)==7 and not (c.shape.reviewedSurface or c.shape.groundMid or St.wallKind(c)) and not TS.void(c) then put(c) end
+   local k=c.collision or 0 -- 7 wall; 114/147/144 door, elevator, panel: they are wall art too
+   local wall=c.shape.kind=='flat' and k~=0 and k~=255 and not (c.shape.reviewedSurface or c.shape.groundMid or St.wallKind(c))
+   if c.cy*16>=face then
+    local floor=not c.prop and (column or wall) and not TS.void(c) and floorOf(c)
+    if floor then c.shape={kind='flat',groundMid=floor};c.column=nil;put(c)
+    elseif c.prop and p.theme=='home' then fill[#fill+1]=c end
+   elseif column then
+    if lift==16 and not TS.void(c) then c.shape={kind='flat'};c.column=nil;put(c) end
+   elseif c.prop or (c.cy==z0 and below and below.prop and c.shape.kind=='flat' and (c.collision or 0)==7 and not c.shape.groundMid) then
+    if p.theme=='home' then fill[#fill+1]=c end
+   elseif wall and not TS.void(c) then put(c) end
   end
  end
  local plain={}
  for _,c in pairs(cells)do
-  if c.cy>=z0 and c.cy*16<face and not c.prop and (c.wallArt or (c.column and c.column.indoor)) and TS.plain(c) then local r=plain[c.cy] or {};plain[c.cy]=r;r[#r+1]=c end
+  if c.cy>=z0 and c.cy<z0+2 and not c.prop and (c.wallArt or (c.column and c.column.indoor)) and TS.plain(c) then local r=plain[c.cy] or {};plain[c.cy]=r;r[#r+1]=c end
  end
  for _,c in ipairs(fill)do local best
   for _,q in ipairs(plain[c.cy] or {})do if q.pair==c.pair and q.ts==c.ts and (not best or math.abs(q.cx-c.cx)<math.abs(best.cx-c.cx)) then best=q end end
