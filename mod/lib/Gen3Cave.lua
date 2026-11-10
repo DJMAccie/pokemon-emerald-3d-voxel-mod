@@ -53,7 +53,7 @@ local function stoneMasks(c)
  local lit,solid={}, {}
  for y=0,15 do for x=0,15 do
   local r,g,b,a=ts.imageData:getPixel(px+x,py+y)
-  if (a or 1)>.5 and not (b>r+.3) and not (r>b+.2) then -- grey stone and its navy shade: not water, not sand ground
+  if (a or 1)>.5 and math.abs(g-r)<.1 and not (r>b+.2) then -- grey stone and its navy shade: not water, grass or sand ground
    solid[y*16+x]=true
    if .299*r+.587*g+.114*b>=STONE_LUM then lit[y*16+x]=true end
   end

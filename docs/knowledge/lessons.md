@@ -254,4 +254,4 @@ Fix: Pin all six mids to poleFoot (plain ground) in Gen3EmeraldShapes and add py
 
 ### L-96 Lavaridge onsen rim stones were big domes on top, small cobbles at the sides
 Cause: Rim tiles (PINS.lavaridge 'rim', kind=rock) went through Gen3Cave.rockHull, which keeps the largest blob of non-ground pixels (nearly the whole tile) and builds ONE 16 px ellipsoid per tile; the art has two ~8 px stones per tile, and the side wall is the flat art, so tops looked twice as big as the sides.
-Fix: shape.stones=true on the rim: Gen3Cave.stoneMasks splits the tile into its lit grey stone tops (lum>=.49, not water, not sand ground; 4-connected, >=6 px, plus a 1 px shade ring) and hullFor builds a small dome per stone (height 1:1 in voxels, own tones).
+Fix: shape.stones=true on the rim: Gen3Cave.stoneMasks splits the tile into its lit grey stone tops (lum>=.49, neutral grey only: grass, water and sand ground in the tile's transparent edge are not stones, they made teal bumps beside the Pokemon Center; 4-connected, >=6 px, plus a 1 px shade ring) and hullFor builds a small dome per stone (height 1:1 in voxels, own tones).
