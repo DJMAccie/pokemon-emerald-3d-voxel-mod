@@ -1,6 +1,6 @@
 -- Gen3Blocks
 local V=...
-local M={enabled=true,LEAN=.05,FILLET=4,FILLET_SEGS=3}
+local M={enabled=true,LEAN=.05,FILLET=4,FILLET_CUTS={.5,1,1.5,2,3,4},SEAM=.25}
 M.UP_FACES=true
 M.LID_REACH=3
 M.TOP_LUM=.06
@@ -539,6 +539,24 @@ local function impure(ts,mid)
  return v
 end
 M.PURE=.03
+local function grey(ts,mid) -- share of a tile that is neutral grey (the shadow drawn at a rock's foot)
+ ts.blocksGrey=ts.blocksGrey or {}
+ local v=ts.blocksGrey[mid]
+ if v then return v end
+ v=0
+ local slot=ts.imageData and ts.midToSlot and ts.midToSlot[mid]
+ if slot then
+  local gx,gy=slot%ts.cols*16,math.floor(slot/ts.cols)*16;local n=0
+  for y=0,15 do for x=0,15 do
+   local r,g,b=ts.imageData:getPixel(gx+x,gy+y);if math.max(r,g,b)-math.min(r,g,b)<.06 then n=n+1 end
+  end end
+  v=n/256
+ end
+ ts.blocksGrey[mid]=v
+ return v
+end
+-- A rock top shows rock only: no grass strip, no foot shadow.
+local function lidDirty(ts,mid)return impure(ts,mid)>M.PURE or grey(ts,mid)>.01 end
 local function cropWater(ts,mid,uv)
  if not (uv and ts) then return uv end
  local w=edgeCrop(ts,mid)
@@ -550,8 +568,9 @@ local function cropWater(ts,mid,uv)
 end
 M.LEDGE_REACH=12
 M.LEDGE_VOTES=24
-function M.ledgeFaceUV(c,cells,uvFor)
- if c.ledgeUV~=nil then return c.ledgeUV or nil end
+function M.ledgeFaceUV(c,cells,uvFor,lid)
+ local slot=lid and 'lidCleanUV' or 'ledgeUV'
+ if c[slot]~=nil then return c[slot] or nil end
  local seen={[c]=true};local ring={c};local votes,ts,nv={},nil,0
  for _=1,M.LEDGE_REACH do
   local nxt={}
@@ -561,7 +580,7 @@ function M.ledgeFaceUV(c,cells,uvFor)
     if n and not seen[n] then
      seen[n]=true
      if n.blocks and n.ts and n.mid and not n.boundary and nv<M.LEDGE_VOTES then
-      local fm=faceMid(n,cells);ts=ts or n.ts
+      local fm=lid and n.mid or faceMid(n,cells);ts=ts or n.ts
       if n.ts==ts then votes[fm]=(votes[fm] or 0)+1;nv=nv+1 end
      end
      nxt[#nxt+1]=n
@@ -575,12 +594,12 @@ function M.ledgeFaceUV(c,cells,uvFor)
  for pass=1,2 do -- clean rock tiles first; any voted tile only when none is clean
   for mid,n in pairs(votes)do
    local l=lumOf(ts,mid) or 1
-   if (pass==2 or impure(ts,mid)<=M.PURE) and (not best or n>bn or (n==bn and l<bl)) then best,bn,bl=mid,n,l end
+   if (pass==2 or (impure(ts,mid)<=M.PURE and not (lid and grey(ts,mid)>.01))) and (not best or n>bn or (n==bn and l<bl)) then best,bn,bl=mid,n,l end
   end
   if best then break end
  end
  local uv=best and cropWater(ts,best,uvFor(ts,best)) or nil
- c.ledgeUV=uv or false
+ c[slot]=uv or false
  return uv
 end
 local function topLike(c,st)
@@ -657,8 +676,10 @@ local function face(emit,uv,shade,ax,az,bx,bz,ix,iz,lo,hi,ends,plain)
  local endA,endB=ends and ends[1],ends and ends[2]
  local ex,ez=bx-ax,bz-az;local el=math.sqrt(ex*ex+ez*ez);ex,ez=ex/el,ez/el
  local function off(y)return insetAt(lo,hi,lean,R,y) end
- local function PA(y)local o,t=off(y),0;if endA then o,t=endA(y) end;return {ax+ex*t+ix*o,y,az+ez*t+iz*o} end
- local function PB(y)local o,t=off(y),0;if endB then o,t=endB(y) end;return {bx-ex*t+ix*o,y,bz-ez*t+iz*o} end
+ -- a face reaches SEAM past its ends and under its foot, so neighbours overlap instead of leaving a hairline
+ local S=plain and 0 or M.SEAM
+ local function PA(y)local o,t=off(y),0;if endA then o,t=endA(y) end;return {ax+ex*(t-S)+ix*o,y<lo+1e-6 and y-S or y,az+ez*(t-S)+iz*o} end
+ local function PB(y)local o,t=off(y),0;if endB then o,t=endB(y) end;return {bx-ex*(t-S)+ix*o,y<lo+1e-6 and y-S or y,bz-ez*(t-S)+iz*o} end
  local function strip(ya,yb)
   local ct=hi-math.floor((hi-ya)/16+1e-6)*16
   local va,vbv
@@ -666,20 +687,15 @@ local function face(emit,uv,shade,ax,az,bx,bz,ix,iz,lo,hi,ends,plain)
   else va=vt+(vb-vt)*(ct-ya)/16;vbv=vt+(vb-vt)*(ct-yb)/16 end
   emit({PA(yb),PB(yb),PB(ya),PA(ya)},{{u1,vbv},{u2,vbv},{u2,va},{u1,va}},shade)
  end
+ -- Faces that meet at an edge must cut it at the same heights, or the rounded tops leave hairline cracks:
+ -- every face cuts its top at the same offsets below the top (FILLET_CUTS), then at its courses and breaks.
+ local cuts={hi,lo}
+ if not plain then for _,d in ipairs(M.FILLET_CUTS)do if hi-d>lo+1e-6 then cuts[#cuts+1]=hi-d end end end
+ for y=hi-16,lo+1e-6,-16 do cuts[#cuts+1]=y end
+ if ends and ends.breaks then for _,b in ipairs(ends.breaks)do if b>lo+1e-6 and b<hi-1e-6 then cuts[#cuts+1]=b end end end
+ table.sort(cuts,function(p,q)return p>q end)
  local y1=hi
- if R>0 then
-  local n=M.FILLET_SEGS
-  for i=1,n do strip(hi-R*(i-1)/n,hi-R*i/n) end
-  y1=hi-R
- end
- while y1>lo+1e-6 do
-  local ct=hi-math.floor((hi-y1)/16+1e-6)*16
-  local y0=math.max(lo,ct-16)
-  if y0>=y1-1e-6 then y0=math.max(lo,ct-32) end
-  if ends and ends.breaks then for _,b in ipairs(ends.breaks)do if b>y0+1e-6 and b<y1-1e-6 then y0=b end end end
-  strip(y1,y0)
-  y1=y0
- end
+ for k=2,#cuts do if cuts[k]<y1-1e-4 then strip(y1,cuts[k]);y1=cuts[k] end end
 end
 
 local function rampWall(emit,uv,shade,ax,az,bx,bz,pA,pB,qA,qB,onlyOut)
@@ -755,7 +771,8 @@ local function appendRamp(c,cells,emit,uvFor)
  local lid=uvFor(c.ts,c.mid);local fm=faceMid(c,cells);local fuv=fm and cropWater(c.ts,fm,uvFor(c.ts,fm)) or lid
  if impure(c.ts,fm or c.mid)>M.PURE then fuv=M.ledgeFaceUV(c,cells,uvFor) or fuv end
  if r.slope and not M.SPOT_MIDS[c.mid] then lid=fuv
- elseif c.ts and c.mid and wet(c.ts,c.mid)>.005 then lid=lidUV0(c,cells,uvFor,c.mass and massStats(c.mass) or nil,true) or lid end -- a water notch in the lid art
+ elseif c.ts and c.mid and wet(c.ts,c.mid)>.005 then lid=lidUV0(c,cells,uvFor,c.mass and massStats(c.mass) or nil,true) or lid -- a water notch in the lid art
+ elseif c.floor and c.floor.cls=='FACE' and c.ts and c.mid and lidDirty(c.ts,c.mid) then lid=M.ledgeFaceUV(c,cells,uvFor,true) or lid end
  local Parapet=V.require('Gen3Parapet');local par=Parapet.is(c)
  if par then lid,fuv=Parapet.lid(c,uvFor) or lid,Parapet.face(c,uvFor) or fuv end
  if r.cone then
@@ -804,7 +821,8 @@ function M.append(c,cells,emit,uvFor)
  local fm=faceMid(c,cells)
  local E=V.require('Gen3Elevation')
  local lid=(E.BAND_LEVEL=='lower' and c.floor and c.floor.cls=='FACE') and uvFor(c.ts,c.mid) or lidUV(c,cells,uvFor,c.mass and massStats(c.mass) or nil)
- if c.ts and c.mid and wet(c.ts,c.mid)>.005 then lid=lidUV0(c,cells,uvFor,c.mass and massStats(c.mass) or nil,true) or lid end
+ if c.ts and c.mid and wet(c.ts,c.mid)>.005 then lid=lidUV0(c,cells,uvFor,c.mass and massStats(c.mass) or nil,true) or lid
+ elseif c.floor and c.floor.cls=='FACE' and c.ts and c.mid and lidDirty(c.ts,c.mid) then lid=M.ledgeFaceUV(c,cells,uvFor,true) or cropWater(c.ts,c.mid,lid) end
  local fuv=cropWater(c.ts,fm or c.mid,fm and uvFor(c.ts,fm) or uvFor(c.ts,c.mid))
  if impure(c.ts,fm or c.mid)>M.PURE then fuv=M.ledgeFaceUV(c,cells,uvFor) or fuv end -- a notched corner tile: the ridge's clean rock instead
  local Parapet=V.require('Gen3Parapet');local par=Parapet.is(c)
@@ -863,7 +881,7 @@ function M.append(c,cells,emit,uvFor)
    return insetOwn(i,y),insetOwn(j,y)
   end
  end
- local function ins(i,j)if not drops[i] then return 0 end;local o=endAt(i,j)(T);return o end
+ local function ins(i,j)if not drops[i] then return 0 end;local o=endAt(i,j)(T);return o-M.SEAM end
  emit({{x+ins(2,4),T,z+ins(4,2)},{x+16-ins(1,4),T,z+ins(4,1)},{x+16-ins(1,3),T,z+16-ins(3,1)},{x+ins(2,3),T,z+16-ins(3,2)}},lid,1)
  local function ends(i,ja,jb)
   local b={}

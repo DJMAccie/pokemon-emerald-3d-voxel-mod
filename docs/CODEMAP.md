@@ -6,7 +6,7 @@ functions (`name@line`). Data tables are in `mod/data/` (generated; never read t
 ## mod/lib (emerald_3d_voxel_mod)
 ### Scene building (Gen 3 overworld)
 - `BoundaryScenery` 46: Pure boundary selection
-- `Gen3Boundary` 127: Render the native Emerald perimeter in map-local coordinates.
+- `Gen3Boundary` 132: Render the native Emerald perimeter in map-local coordinates.
 - `Gen3CamClear` 77: Gen3CamClear
 - `Gen3Elevation` 601: Physical support from native stair topology and reviewed source surfaces
   - daisAt@51 daisPrepare@55 daisSettle@66 field@85 [inside field, first calls: Pairs.resolve@92 Levels.build@315] cell@407 at@410 supportFill@411 bind@451 lift@592 invalidate@599
@@ -30,8 +30,8 @@ functions (`name@line`). Data tables are in `mod/data/` (generated; never read t
 - `TerrainLevels` 399: Presentation-only floor topology
 ### Terrain, rock, water edges
 - `Gen3AshPine` 127: Mt
-- `Gen3Blocks` 917: Gen3Blocks
-  - key@14 pinned@19 prepare@24 set@66 isStone@71 looseStones@75 roundEnd@114 arrowRamps@130 restoreHeights@189 buildRamps@193 liftSpots@312 lowerArches@335 buildSlopes@344 floorOf@393 besideHeight@394 lumOf@404 massStats@415 faceLike@432 faceMid@441 grassTop@475 notRock@491 edgeCrop@494 impure@524 cropWater@542 ledgeFaceUV@553 topLike@586 wet@592 lidUV@609 lidUV0@614 insetAt@644 face@651 rampWall@685 stairFlight@710 stairSide@730 appendRamp@753 append@800
+- `Gen3Blocks` 935: Gen3Blocks
+  - key@14 pinned@19 prepare@24 set@66 isStone@71 looseStones@75 roundEnd@114 arrowRamps@130 restoreHeights@189 buildRamps@193 liftSpots@312 lowerArches@335 buildSlopes@344 floorOf@393 besideHeight@394 lumOf@404 massStats@415 faceLike@432 faceMid@441 grassTop@475 notRock@491 edgeCrop@494 impure@524 grey@542 lidDirty@559 cropWater@560 ledgeFaceUV@571 topLike@605 wet@611 lidUV@628 lidUV0@633 insetAt@663 face@670 rampWall@701 stairFlight@726 stairSide@746 appendRamp@769 append@817
 - `Gen3Cave` 379: Cave masses and boulders use their native palette and silhouette
 - `Gen3Decks` 379: Stepped decks the cartridge rates flat
 - `Gen3Hills` 559: Sand hills
@@ -83,7 +83,7 @@ functions (`name@line`). Data tables are in `mod/data/` (generated; never read t
 - `Gen3Objects` 872: Generic standing objects for Emerald's outdoor maps
   - blocked@10 unknown@11 rim@16 walkableGround@21 key@25 livePixel@27 pristine@51 stillOf@57 overData@68 pixel@72 underPixel@81 origin@86 same@90 shade@93 newBuild@103 cut@105 overInk@165 colourKey@177 paletteOf@178 share@186 joinRock@197 tone@231 flood@246 bank@257 vote@307 prepare@316 treeLike@605 memberOf@637 sampler@643 treePixels@656 hull@678 segmentTrees@691 append@783
 - `Gen3TreeStamps` 72: Which tiles draw a tree and how each is stood up
-- `NativeTreeArt` 222: Original, palette-baked game art on grounded cards
+- `NativeTreeArt` 224: Original, palette-baked game art on grounded cards
 - `SpriteVoxel` 202: Sprite-to-voxel
 - `TowerGraveMist` 406: Test 135
 - `TreePresentation` 14: Scenery options: rocks & plants, textures
@@ -94,8 +94,8 @@ functions (`name@line`). Data tables are in `mod/data/` (generated; never read t
 - `CameraSettings` 5: The same look preference feeds the native and GB camera adapters
 - `DebugWalk` 14: Debug walk
 - `FlyMotion` 60: Gen 1 Fly choreography
-- `Gen3FlyGround` 749: Gen3FlyGround
-  - eng@17 now@18 note@19 fill@23 fillAt@43 placement@55 origins@62 fullView@76 packFloats@94 state@104 chunkKey@105 begin@106 release@137 done@142 mapReady@144 guardRetain@156 pairReady@172 pause@181 survey@186 mapAt@244 fillKind@255 fillTop@269 topAt@276 spread@290 reliefStep@325 offset@377 emit@383 wall@404 walls@413 mapCell@427 fillCell@443 planChunk@455 step@519 coverage@593 cutPart@606 cut@627 seaPair@649 refreshSea@656 seaMesh@687 warm@708 draw@712
+- `Gen3FlyGround` 962: Gen3FlyGround
+  - eng@20 now@21 note@22 fill@26 fillAt@46 placement@58 origins@65 fullView@79 packFloats@97 state@107 chunkKey@108 begin@109 release@140 done@145 mapReady@147 guardRetain@159 pairReady@175 pause@184 treeShape@190 survey@204 mapAt@269 fillKind@280 fillTop@294 topAt@301 spread@316 reliefStep@351 offset@403 emit@409 wall@430 walls@440 buildCells@456 prepareBuildings@478 addTree@494 mapCell@519 fillCell@543 buildTrees@556 releaseTrees@574 planChunk@578 step@661 coverage@789 cutPart@802 cut@823 seaPair@848 refreshSea@855 seaMesh@886 warm@907 draw@911
 - `Gen3FlyOver` 979: Gen3FlyOver
   - eng@34 now@35 note@36 slow@38 active@43 frame@44 hidesPlayer@50 hidesFollowers@51 state@52 size@54 sectionTable@56 regionCentre@68 layout@77 place@84 worldFrom@100 groundMaps@109 supported@121 flyers@132 bakedSprite@140 mountSprite@158 segRectDist@183 fullMap@195 allocBands@204 carpetPlan@216 cutBand@242 applyCut@269 buildRows@272 cutRect@327 carpetStep@333 releaseCarpet@367 restorePlayer@378 computePose@382 swap@414 showPopup@426 finish@430 abort@447 start@464 whiteAt@501 slice@506 stepRider@511 groundStep@531 update@547 focus@591 upFor@595 camera@601 fog@629 sea@640 drawGround@655 facingFor@682 flap@687 shadow@695 drawRider@713 cloudImage@782 overlay@806 warm@845 prewarm@861 prewarmStep@872 install@884 plan@962 eligible@968
 - `Gen3FlyPath` 152: Gen3FlyPath
