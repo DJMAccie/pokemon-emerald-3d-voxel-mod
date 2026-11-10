@@ -239,3 +239,11 @@ Fix: apply repeats frame 0 (spr.quads[i] or spr.quads[0]), builds the nine-frame
 ### L-92 Filling window boxes in the glass texel mask lights unrelated quads of model buildings
 Cause: BuildingVoxels quads each sample ONE shared swatch texel (px,py) of the composed picture, so a texel inside a window box is also read by other quads (Petalburg gym sign letters, frame lines); lighting every texel of a pane bbox (GlassMask fill + merge of small comps) lit those and left Rustboro arched windows unchanged
 Fix: Never widen the texel mask; give the pane-box quads their own twin texels (copies of their colour appended as extra picture rows, marked in the mask via m.twins) so only those quads light
+
+### L-93 Night windows of model buildings lit only part of the pane (Rustboro '5' shapes)
+Cause: The pane art holds dark slate reflections (66,74,107) and grey streaks next to the light glass; only the glass colour was in the mask, and model quads share colour swatches so the mask cannot be widened per texel (L-92). The same slate is the sash bar of house windows.
+Fix: BuildingVoxels.twinPanes: per wall plane, box the lit quads (gap 2, max 24 px); unlit bluish quads (b>=g-4, b>=r, lum>=55) inside a box get a twin texel in extra picture rows, listed in m.twins for GlassMask; a column or row of the box without any glass is a sash bar and stays dark. Day picture unchanged (pixel diff), 8 night towns checked.
+
+### L-94 Grass plateau dropped as a bare green wall; Lilycove beach had a 2-course sand spike
+Cause: c.floor.bareDrop is never set since the height maps (52e02fda), so a floor drop used the floor's own top tile; the Lilycove JSON had the ledge corner one cell off ((41,34) E1:2, (42,34) SW)
+Fix: Gen3Scene drop wall: a grass top (Gen3Blocks.grassTop) on a height-map cell dropping 8 px or more takes Gen3Blocks.ledgeFaceUV (nearest rock face); JSON corrected and rebaked with tools/heightmaps.py. Not swept over other maps yet when written.

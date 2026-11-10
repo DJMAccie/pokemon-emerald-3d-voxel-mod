@@ -483,6 +483,83 @@ local function faceMid(c,cells)
  end
  return c.mid
 end
+-- A grass floor tile: most of its pixels are green. Its drop to lower ground is rock, never grass.
+function M.grassTop(ts,mid)
+ if not (ts and ts.imageData and ts.midToSlot and ts.midToSlot[mid]) then return false end
+ ts.blocksGrass=ts.blocksGrass or {}
+ local v=ts.blocksGrass[mid]
+ if v==nil then
+  local slot=ts.midToSlot[mid];local gx,gy,n=slot%ts.cols*16,math.floor(slot/ts.cols)*16,0
+  for y=0,15 do for x=0,15 do local r,g,b=ts.imageData:getPixel(gx+x,gy+y);if g>r+.12 and g>b+.04 then n=n+1 end end end
+  v=n>=192;ts.blocksGrass[mid]=v
+ end
+ return v
+end
+-- Terrain beside the rock belongs on the floor, not repeated down its wall.
+M.BLUE_COL=.6
+M.CROP_MAX=6
+-- A face tile's art often carries a strip of what lies beside the rock (water, grass, sand) along an edge.
+-- Edge columns and rows that are mostly not rock are cut off, so a wall shows rock only.
+local function notRock(r,g,b)
+ return (b>r+.15 and b>g-.05) or (g>r+.12 and g>b+.04) or (r>.78 and g>.68 and r-b>.2)
+end
+local function edgeCrop(ts,mid)
+ ts.blocksCrop=ts.blocksCrop or {}
+ local w=ts.blocksCrop[mid]
+ if w then return w end
+ w={0,0,0,0}
+ local slot=ts.imageData and ts.midToSlot and ts.midToSlot[mid]
+ if slot then
+  local gx,gy=slot%ts.cols*16,math.floor(slot/ts.cols)*16
+  local col,row={},{}
+  for i=0,15 do
+   local nc,nr=0,0
+   for j=0,15 do
+    if notRock(ts.imageData:getPixel(gx+i,gy+j)) then nc=nc+1 end
+    if notRock(ts.imageData:getPixel(gx+j,gy+i)) then nr=nr+1 end
+   end
+   col[i]=nc/16>=M.BLUE_COL;row[i]=nr/16>=M.BLUE_COL
+  end
+  local function ends(t,cap)
+   local a,b=0,0
+   while a<16 and t[a] do a=a+1 end
+   while b<16-a and t[15-b] do b=b+1 end
+   if a+b<=cap then return a,b end
+   return 0,0
+  end
+  w[1],w[2]=ends(col,M.CROP_MAX);w[3],w[4]=ends(row,M.CROP_MAX)
+ end
+ ts.blocksCrop[mid]=w
+ return w
+end
+-- Share of a face tile, inside its crop, that is still not rock (a corner tile with water drawn in its notch).
+local function impure(ts,mid)
+ ts.blocksImpure=ts.blocksImpure or {}
+ local v=ts.blocksImpure[mid]
+ if v then return v end
+ v=0
+ local slot=ts.imageData and ts.midToSlot and ts.midToSlot[mid]
+ if slot then
+  local gx,gy=slot%ts.cols*16,math.floor(slot/ts.cols)*16
+  local w=edgeCrop(ts,mid);local n,tot=0,0
+  for y=w[3],15-w[4] do for x=w[1],15-w[2] do
+   tot=tot+1;if notRock(ts.imageData:getPixel(gx+x,gy+y)) then n=n+1 end
+  end end
+  v=tot>0 and n/tot or 0
+ end
+ ts.blocksImpure[mid]=v
+ return v
+end
+M.PURE=.03
+local function cropWater(ts,mid,uv)
+ if not (uv and ts) then return uv end
+ local w=edgeCrop(ts,mid)
+ if w[1]+w[2]+w[3]+w[4]==0 then return uv end
+ local function lerp(p,q,t)return {p[1]+(q[1]-p[1])*t,p[2]+(q[2]-p[2])*t} end
+ local s0,s1,t0,t1=w[1]/16,1-w[2]/16,w[3]/16,1-w[4]/16
+ local function at(s,t)return lerp(lerp(uv[1],uv[2],s),lerp(uv[4],uv[3],s),t) end
+ return {at(s0,t0),at(s1,t0),at(s1,t1),at(s0,t1)}
+end
 M.LEDGE_REACH=12
 M.LEDGE_VOTES=24
 function M.ledgeFaceUV(c,cells,uvFor)
@@ -507,11 +584,14 @@ function M.ledgeFaceUV(c,cells,uvFor)
   ring=nxt
  end
  local best,bn,bl
- for mid,n in pairs(votes)do
-  local l=lumOf(ts,mid) or 1
-  if not best or n>bn or (n==bn and l<bl) then best,bn,bl=mid,n,l end
+ for pass=1,2 do -- clean rock tiles first; any voted tile only when none is clean
+  for mid,n in pairs(votes)do
+   local l=lumOf(ts,mid) or 1
+   if (pass==2 or impure(ts,mid)<=M.PURE) and (not best or n>bn or (n==bn and l<bl)) then best,bn,bl=mid,n,l end
+  end
+  if best then break end
  end
- local uv=best and uvFor(ts,best) or nil
+ local uv=best and cropWater(ts,best,uvFor(ts,best)) or nil
  c.ledgeUV=uv or false
  return uv
 end
@@ -521,8 +601,30 @@ local function topLike(c,st)
  if t and t.foliage then return true end
  return not faceLike(c.ts,c.mid,st)
 end
+local function wet(ts,mid) -- share of a tile's pixels that are water-blue (a lid tile with a water notch)
+ ts.blocksWet=ts.blocksWet or {}
+ local v=ts.blocksWet[mid]
+ if v then return v end
+ v=0
+ local slot=ts.imageData and ts.midToSlot and ts.midToSlot[mid]
+ if slot then
+  local gx,gy=slot%ts.cols*16,math.floor(slot/ts.cols)*16;local n=0
+  for y=0,15 do for x=0,15 do
+   local r,g,b=ts.imageData:getPixel(gx+x,gy+y);if b>r+.15 and b>g-.05 then n=n+1 end
+  end end
+  v=n/256
+ end
+ ts.blocksWet[mid]=v
+ return v
+end
+local lidUV0
 local function lidUV(c,cells,uvFor,st)
- if topLike(c,st) then return uvFor(c.ts,c.mid) end
+ local u=lidUV0(c,cells,uvFor,st,false)
+ if c.ts and c.mid and wet(c.ts,c.mid)>.005 then u=lidUV0(c,cells,uvFor,st,true) or u end
+ return u
+end
+function lidUV0(c,cells,uvFor,st,clean)
+ if topLike(c,st) and not (clean and wet(c.ts,c.mid)>.005) then return uvFor(c.ts,c.mid) end
  local T=c.base or 0
  local seen={[c]=true};local ring={c}
  for _=1,M.LID_REACH do
@@ -534,19 +636,20 @@ local function lidUV(c,cells,uvFor,st)
      seen[n]=true
      if n.blocks then
       if math.abs((n.base or 0)-T)<=2 then
-       if topLike(n,st) then local u=uvFor(n.ts,n.mid);if u then return u end end
+       if topLike(n,st) and not (clean and (wet(n.ts,n.mid)>.005 or impure(n.ts,n.mid)>M.PURE)) then local u=uvFor(n.ts,n.mid);if u then return u end end
        nxt[#nxt+1]=n
       end
      elseif not n.boundary and math.abs((n.floorHigh or n.base or 0)-T)<=2 and not (n.floor and n.floor.step) then
       local k=n.shape.kind
       local g=(k=='flat' or k=='grass') and (n.collision or 0)==0 and (n.shape.groundMid or n.mid) or (k=='tree' or k=='flat' or k=='grass') and n.shape.ground or nil
-      if g then local u=uvFor(n.ts,g);if u then return u end end
+      if g and not clean then local u=uvFor(n.ts,g);if u then return u end end
      end
     end
    end
   end
   ring=nxt;if #ring==0 then break end
  end
+ if clean then return M.ledgeFaceUV(c,cells,uvFor) or uvFor(c.ts,c.mid) end
  return uvFor(c.ts,c.mid)
 end
 
@@ -661,8 +764,10 @@ local function stairSide(emit,uv,shade,n,fl,ax,az,bx,bz,pA,pB)
 end
 local function appendRamp(c,cells,emit,uvFor)
  local r=c.ramp;local x,z=c.cx*16,c.cy*16
- local lid=uvFor(c.ts,c.mid);local fm=faceMid(c,cells);local fuv=fm and uvFor(c.ts,fm) or lid
- if r.slope and not M.SPOT_MIDS[c.mid] then lid=fuv end
+ local lid=uvFor(c.ts,c.mid);local fm=faceMid(c,cells);local fuv=fm and cropWater(c.ts,fm,uvFor(c.ts,fm)) or lid
+ if impure(c.ts,fm or c.mid)>M.PURE then fuv=M.ledgeFaceUV(c,cells,uvFor) or fuv end
+ if r.slope and not M.SPOT_MIDS[c.mid] then lid=fuv
+ elseif c.ts and c.mid and wet(c.ts,c.mid)>.005 then lid=lidUV0(c,cells,uvFor,c.mass and massStats(c.mass) or nil,true) or lid end -- a water notch in the lid art
  local Parapet=V.require('Gen3Parapet');local par=Parapet.is(c)
  if par then lid,fuv=Parapet.lid(c,uvFor) or lid,Parapet.face(c,uvFor) or fuv end
  if r.cone then
@@ -704,40 +809,6 @@ local function appendRamp(c,cells,emit,uvFor)
  if par then Parapet.append(c,cells,emit,uvFor,c.base or r[1]) end
  return true
 end
--- Terrain beside the rock belongs on the floor, not repeated down its wall.
-M.BLUE_COL=.6
-local function waterCols(ts,mid)
- ts.blocksWater=ts.blocksWater or {}
- local w=ts.blocksWater[mid]
- if w then return w[1],w[2] end
- w={0,0}
- local slot=ts.imageData and ts.midToSlot and ts.midToSlot[mid]
- if slot then
-  local gx,gy=slot%ts.cols*16,math.floor(slot/ts.cols)*16
-  local blue={}
-  for x=0,15 do
-   local n=0
-   for y=0,15 do local r,g,b=ts.imageData:getPixel(gx+x,gy+y)
-    if (b>r+.15 and b>g-.05) or (g>r+.12 and g>b+.04) then n=n+1 end
-   end
-   blue[x]=n/16>=M.BLUE_COL
-  end
-  local a,b=0,0
-  while a<16 and blue[a] do a=a+1 end
-  while b<16-a and blue[15-b] do b=b+1 end
-  if a+b<=4 then w={a,b} end
- end
- ts.blocksWater[mid]=w
- return w[1],w[2]
-end
-local function cropWater(ts,mid,uv)
- if not (uv and ts) then return uv end
- local a,b=waterCols(ts,mid)
- if a==0 and b==0 then return uv end
- local t0,t1=a/16,1-b/16
- local function lerp(p,q,t)return {p[1]+(q[1]-p[1])*t,p[2]+(q[2]-p[2])*t} end
- return {lerp(uv[1],uv[2],t0),lerp(uv[1],uv[2],t1),lerp(uv[4],uv[3],t1),lerp(uv[4],uv[3],t0)}
-end
 function M.append(c,cells,emit,uvFor)
  if c.ramp then return appendRamp(c,cells,emit,uvFor) end
  local T=c.base or 0
@@ -745,7 +816,9 @@ function M.append(c,cells,emit,uvFor)
  local fm=faceMid(c,cells)
  local E=V.require('Gen3Elevation')
  local lid=(E.BAND_LEVEL=='lower' and c.floor and c.floor.cls=='FACE') and uvFor(c.ts,c.mid) or lidUV(c,cells,uvFor,c.mass and massStats(c.mass) or nil)
+ if c.ts and c.mid and wet(c.ts,c.mid)>.005 then lid=lidUV0(c,cells,uvFor,c.mass and massStats(c.mass) or nil,true) or lid end
  local fuv=cropWater(c.ts,fm or c.mid,fm and uvFor(c.ts,fm) or uvFor(c.ts,c.mid))
+ if impure(c.ts,fm or c.mid)>M.PURE then fuv=M.ledgeFaceUV(c,cells,uvFor) or fuv end -- a notched corner tile: the ridge's clean rock instead
  local Parapet=V.require('Gen3Parapet');local par=Parapet.is(c)
  if par then lid,fuv=Parapet.lid(c,uvFor) or lid,Parapet.face(c,uvFor) or fuv end -- a stone railing: plain floor under it, rock walls, the rail stands on top
  local drops={}

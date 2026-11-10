@@ -1703,7 +1703,10 @@ local function build(req,cache,previous)
       end end
       ::found::
      end
-     if ledgeUV and c.floor and c.floor.bareDrop and not (n.floor and n.floor.ledge) and not n.stairs and not (n.floor and n.floor.step) then uv=ledgeUV end
+     if ledgeUV and c.floor and c.floor.bareDrop and not (n.floor and n.floor.ledge) and not n.stairs and not (n.floor and n.floor.step) then uv=ledgeUV
+     elseif low<=base-8 and not deck and not ftree and not c.boundary and c.hmap and V.require('Gen3Blocks').grassTop(ts,c.mid) then -- a grass plateau drops as rock (Lilycove beach)
+      uv=V.require('Gen3Blocks').ledgeFaceUV(c,cells,uvFor) or uv
+     end
      if low<base then
       if not lowest or low<lowest then lowest,lowN=low,n end
       local ax,az=x+(d[1]>0 and 16 or 0),z+(d[2]>0 and 16 or 0)
