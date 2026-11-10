@@ -45,7 +45,7 @@ functions (`name@line`). Data tables are in `mod/data/` (generated; never read t
 - `Gen3RockSprites` 375: Overworld rocks that are actors
 - `Gen3Stairs` 219: Interior stairs: source-textured flights, back-wall doorways, steps and ladders
 - `Gen3Terrain` 158: Native General cliff masses
-- `VoxelHull` 477: Closed, greedy-meshed voxel volumes
+- `VoxelHull` 489: Closed, greedy-meshed voxel volumes
 - `Water` 969: Voxel world mode
   - level@18 enabled@25 lean@37 waveRate@60 craterSource@724 trainSource@735 source@759 shader@777 waveTime@796 begin@807 sendSky@886 draw@941 finish@954 invalidate@958
 - `WaterSurfacePass` 39: A generation-neutral water pass using the shared reflection shader
@@ -94,7 +94,8 @@ functions (`name@line`). Data tables are in `mod/data/` (generated; never read t
 - `CameraSettings` 5: The same look preference feeds the native and GB camera adapters
 - `DebugWalk` 14: Debug walk
 - `FlyMotion` 60: Gen 1 Fly choreography
-- `Gen3FlyGround` 487: Gen3FlyGround
+- `Gen3FlyGround` 749: Gen3FlyGround
+  - eng@17 now@18 note@19 fill@23 fillAt@43 placement@55 origins@62 fullView@76 packFloats@94 state@104 chunkKey@105 begin@106 release@137 done@142 mapReady@144 guardRetain@156 pairReady@172 pause@181 survey@186 mapAt@244 fillKind@255 fillTop@269 topAt@276 spread@290 reliefStep@325 offset@377 emit@383 wall@404 walls@413 mapCell@427 fillCell@443 planChunk@455 step@519 coverage@593 cutPart@606 cut@627 seaPair@649 refreshSea@656 seaMesh@687 warm@708 draw@712
 - `Gen3FlyOver` 979: Gen3FlyOver
   - eng@34 now@35 note@36 slow@38 active@43 frame@44 hidesPlayer@50 hidesFollowers@51 state@52 size@54 sectionTable@56 regionCentre@68 layout@77 place@84 worldFrom@100 groundMaps@109 supported@121 flyers@132 bakedSprite@140 mountSprite@158 segRectDist@183 fullMap@195 allocBands@204 carpetPlan@216 cutBand@242 applyCut@269 buildRows@272 cutRect@327 carpetStep@333 releaseCarpet@367 restorePlayer@378 computePose@382 swap@414 showPopup@426 finish@430 abort@447 start@464 whiteAt@501 slice@506 stepRider@511 groundStep@531 update@547 focus@591 upFor@595 camera@601 fog@629 sea@640 drawGround@655 facingFor@682 flap@687 shadow@695 drawRider@713 cloudImage@782 overlay@806 warm@845 prewarm@861 prewarmStep@872 install@884 plan@962 eligible@968
 - `Gen3FlyPath` 152: Gen3FlyPath

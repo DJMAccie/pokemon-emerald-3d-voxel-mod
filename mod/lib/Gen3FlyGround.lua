@@ -10,6 +10,8 @@ local M={
  SEA_MID=0x170,
  PLANE=26000,
  PLANE_CELL=650,
+ TREE=28, -- px a forest stands above its floor
+ STOREY=16, -- px per facade row of a building
  log=true,
 }
 local function eng(name)return package.loaded[name] or require(name)end
@@ -107,7 +109,7 @@ function M.begin(game,maps)
  if G then M.release() end
  local Tiles=eng('src.core.game3.tileset_native')
  local size=eng('src.core.game3.connections').sizeOf
- G={game=game,maps={},chunks={},order={},alloc={},filled={},t0=now(),quads=0,meshes=0,planMs=0,fillMs=0}
+ G={game=game,maps={},chunks={},byNum={},order={},alloc={},filled={},t0=now(),quads=0,meshes=0,planMs=0,fillMs=0}
  local x0,y0,x1,y1=F.ox,F.oy,F.ox+F.W,F.oy+F.H
  for id,e in pairs(maps)do
   local def=e.def
@@ -126,7 +128,7 @@ function M.begin(game,maps)
   for _,m in ipairs(G.maps)do
    if m.ox<c.x0+C and m.ox+m.w>c.x0 and m.oy<c.y0+C and m.oy+m.h>c.y0 then c.maps[#c.maps+1]=m end
   end
-  G.chunks[chunkKey(cx,cy)]=c;G.order[#G.order+1]=c
+  G.chunks[chunkKey(cx,cy)]=c;G.order[#G.order+1]=c;G.byNum[(cy+2048)*4096+cx+2048]=c
  end end
  for _,p in ipairs(F.pairs)do if not Tiles._pairs[p] then pcall(Tiles.prefetch,p,1)end end
  note('world: %d maps, %d chunks of %d cells, fill %dx%d at (%d,%d), %d fill pairs',#G.maps,#G.order,C,F.W,F.H,F.ox,F.oy,#F.pairs)
@@ -178,6 +180,278 @@ local function pairReady(p,priority)
 end
 function M.pause()want={}end
 
+-- Relief: the flight ground stands at the voxel world's own heights (Gen3Elevation fields, one offset per map).
+local KIND={tree=1,roof=2,wall=3,water=4}
+local abs,min,max=math.abs,math.min,math.max
+local function survey(m)
+ local E=V.require('Gen3Elevation')
+ local w,h=m.w,m.h
+ local H,K,R,C,B,F={},{},{},{},{},{}
+ local ok,f=pcall(E.field,m.def)
+ if not ok then note('no heights for %s: %s',m.id,tostring(f));f=nil end
+ local okP,Pin=pcall(V.require,'Gen3PinData')
+ local drawn=f and okP and E.PINS_ON and not E.PIN_SKIP[m.def.id or m.id] and Pin.MAPS[m.def.id or m.id]
+ local arrows=drawn and drawn.cells and drawn.arrows
+ local P=E.PIN_PX or 16
+ for y=0,h-1 do for x=0,w-1 do
+  local i=y*w+x+1
+  local c=f and f.cells[x..':'..y]
+  local hh=c and c.height or 0
+  H[i]=hh;K[i]=c and KIND[c.kind] or 0
+  local a=arrows and arrows[min(x,drawn.w-1)..':'..min(y,drawn.h-1)]
+  if a then
+   local lo,hi=a.lo*P,a.hi*P
+   local d=a.dir
+   if d=='N' then C[i]={hi,hi,lo,lo} elseif d=='S' then C[i]={lo,lo,hi,hi}
+   elseif d=='E' then C[i]={lo,hi,hi,lo} elseif d=='W' then C[i]={hi,lo,lo,hi}
+   else
+    local k=d=='NW' and 1 or d=='NE' and 2 or d=='SE' and 3 or 4
+    local t=a.inner and {hi,hi,hi,hi} or {lo,lo,lo,lo}
+    if a.inner then t[(k+1)%4+1]=lo else t[k]=hi end
+    C[i]=t
+   end
+  elseif c and c.high and c.low then
+   local u=c.step and c.stairUp
+   local lo,hi=c.low,c.high
+   if u and u[2]>0 then C[i]={lo,lo,hi,hi} elseif u and u[1]>0 then C[i]={lo,hi,hi,lo} elseif u and u[1]<0 then C[i]={hi,lo,lo,hi}
+   else C[i]={hi,hi,lo,lo} end
+  elseif c and c.slope and c.height then
+   local sl=c.slope;C[i]={hh+sl[1],hh+sl[2],hh+sl[3],hh+sl[4]}
+  elseif K[i]==1 then R[i]=M.TREE end
+ end end
+ -- a building: its roof rows span the whole footprint, the wall rows below them stand up as its south face
+ for x=0,w-1 do
+  local y=0
+  while y<h do
+   if K[y*w+x+1]==2 then
+    local y0=y
+    while y<h and K[y*w+x+1]==2 do y=y+1 end
+    local r,n=y-y0,0
+    while y<h and K[y*w+x+1]==3 and n<4 do y=y+1;n=n+1 end
+    local up=M.STOREY*max(1,n)
+    local base=H[(y-1)*w+x+1]
+    for j=0,r-1 do local i=(y0+j)*w+x+1;R[i]=up;H[i]=base;C[i]=nil;B[i]={y0+j*(r+n)/r,y0+(j+1)*(r+n)/r} end
+    for j=1,n do local i=(y0+r+j-1)*w+x+1;R[i]=up;H[i]=base;C[i]=nil;F[i]={y0+r+n,j} end
+   else y=y+1 end
+  end
+ end
+ local L=m.def.midLayout
+ if m.pair and m.pair:match('^general__') then
+  for y=0,h-1,2 do for x=0,w-1,2 do if L:midAt(x,y)==M.SEA_MID then m.sea=true;break end end;if m.sea then break end end
+ end
+ m.H,m.K,m.R,m.C,m.B,m.F,m.field,m.off=H,K,R,C,B,F,f,0
+end
+local function mapAt(x,y)
+ local m=G.last
+ if m and x>=m.ox and y>=m.oy and x<m.ox+m.w and y<m.oy+m.h then return m end
+ local C=M.CHUNK
+ local c=G.byNum[(floor(y/C)+2048)*4096+floor(x/C)+2048]
+ if not c then return nil end
+ for _,q in ipairs(c.maps)do
+  if q.H and x>=q.ox and y>=q.oy and x<q.ox+q.w and y<q.oy+q.h then G.last=q;return q end
+ end
+end
+local kinds={}
+local function fillKind(pair,mid)
+ local t=kinds[pair];if not t then t={};kinds[pair]=t end
+ local k=t[mid]
+ if k==nil then
+  k=0
+  pcall(function()
+   local spec=V.require('Gen3Tilesets').resolve(pair,eng('src.import.gba.versions').TILESET_PAIRS)
+   local beh=(eng('src.core.game3.scripting.interaction_scripts').behaviors[pair] or {})[mid]
+   k=KIND[V.require('Gen3TileShape').of(spec.primary,spec.secondary,mid,beh,nil).kind] or 0
+  end)
+  t[mid]=k
+ end
+ return k
+end
+local function fillTop(x,y)
+ local F=fill
+ local p,mid=fillAt(F,x,y);if not p then return nil end
+ local k=fillKind(p,mid)
+ if k==4 then return M.Y_FILL end
+ return (G.FH[(y-F.oy)*F.W+x-F.ox+1] or 0)+(k==1 and M.TREE or 0)+M.Y_FILL
+end
+local function topAt(x,y)
+ local m=mapAt(x,y)
+ if m then
+  local i=(y-m.oy)*m.w+(x-m.ox)+1
+  local o=m.off+M.Y_MAP
+  local c=m.C[i]
+  if c then return c[1]+o,c[2]+o,c[3]+o,c[4]+o end
+  local t=(m.H[i] or 0)+(m.R[i] or 0)+o
+  return t,t,t,t
+ end
+ local t=fillTop(x,y)
+ if t then return t,t,t,t end
+end
+-- The fill between the maps continues the nearest map cell's floor (two-pass distance transform).
+local function spread(pass)
+ local F=fill;local W,Hh=F.W,F.H
+ local D,FH=G.FD,G.FH
+ if pass==1 then
+  D,FH={},{}
+  for i=1,W*Hh do D[i]=1e9;FH[i]=0 end
+  for _,m in ipairs(G.maps)do if m.H then
+   for y=max(0,m.oy-F.oy),min(Hh-1,m.oy+m.h-1-F.oy)do
+    local row,my=y*W,(y+F.oy-m.oy)*m.w
+    for x=max(0,m.ox-F.ox),min(W-1,m.ox+m.w-1-F.ox)do
+     local i=my+(x+F.ox-m.ox)+1
+     D[row+x+1]=0;FH[row+x+1]=(m.K[i]==4 and 0 or m.H[i] or 0)+m.off
+    end
+   end
+  end end
+  G.FD,G.FH=D,FH
+ elseif pass==2 then
+  for y=0,Hh-1 do local row=y*W
+   for x=0,W-1 do local i=row+x+1;local d=D[i]
+    if x>0 and D[i-1]+1<d then d=D[i-1]+1;FH[i]=FH[i-1] end
+    if y>0 and D[i-W]+1<d then d=D[i-W]+1;FH[i]=FH[i-W] end
+    D[i]=d
+   end
+  end
+ else
+  for y=Hh-1,0,-1 do local row=y*W
+   for x=W-1,0,-1 do local i=row+x+1;local d=D[i]
+    if x<W-1 and D[i+1]+1<d then d=D[i+1]+1;FH[i]=FH[i+1] end
+    if y<Hh-1 and D[i+W]+1<d then d=D[i+W]+1;FH[i]=FH[i+W] end
+    D[i]=d
+   end
+  end
+  G.FD=nil
+ end
+end
+local function reliefStep(deadline)
+ local t0=now()
+ G.surveyed=G.surveyed or 0
+ while G.surveyed<#G.maps do
+  if now()>deadline then return false end
+  local m=G.maps[G.surveyed+1]
+  if mapReady(m) then survey(m) end
+  G.surveyed=G.surveyed+1
+  G.reliefMs=(G.reliefMs or 0)+(now()-t0)*1000;t0=now()
+ end
+ if not G.aligned then
+  -- every map on the open sea stands at 0 (the drawn heights are per map; chained across Hoenn they drift);
+  -- the inland maps hang off those, seam by seam
+  local Levels=V.require('TerrainLevels')
+  local list={}
+  for _,m in ipairs(G.maps)do if m.H then list[#list+1]=m;m.near={};m.off=m.sea and 0 or nil end end
+  for i,a in ipairs(list)do for j=i+1,#list do
+   local b=list[j]
+   local side=(a.ox+a.w==b.ox or b.ox+b.w==a.ox) and a.oy<b.oy+b.h and b.oy<a.oy+a.h
+   local top=(a.oy+a.h==b.oy or b.oy+b.h==a.oy) and a.ox<b.ox+b.w and b.ox<a.ox+a.w
+   if side or top then
+    local rb={x=b.ox,y=b.oy,w=b.w,h=b.h,floorField=b.field}
+    Levels.align({{x=a.ox,y=a.oy,w=a.w,h=a.h,floorField=a.field},rb})
+    local d=rb.floorOffset or 0
+    a.near[#a.near+1]={b,-d};b.near[#b.near+1]={a,d}
+   end
+  end end
+  -- an inland map takes the seam that keeps it nearest sea level
+  for _=1,8 do
+   local changed=false
+   for _,m in ipairs(list)do if not m.sea then
+    local best
+    for _,e in ipairs(m.near)do
+     local o=e[1].off and e[1].off+e[2]
+     if o and (not best or abs(o)<abs(best)) then best=o end
+    end
+    if best and best~=m.off then m.off=best;changed=true end
+   end end
+   if not changed then break end
+  end
+  for _,m in ipairs(list)do m.off=m.off or 0;m.near=nil end
+  G.aligned=true;G.pass=1
+  G.reliefMs=(G.reliefMs or 0)+(now()-t0)*1000
+  return false
+ end
+ spread(G.pass);G.pass=G.pass+1
+ G.reliefMs=(G.reliefMs or 0)+(now()-t0)*1000
+ if G.pass<=3 then return false end
+ G.relief=true
+ note('relief: %d maps surveyed, heights spread over the fill, %.0f ms',#G.maps,G.reliefMs)
+ return true
+end
+function M.offset(id)
+ if not (G and G.relief) then return 0 end
+ for _,m in ipairs(G.maps)do if m.id==id then return m.off or 0 end end
+ return 0
+end
+local SH_E,SH_W,SH_S,SH_N=.84,.72,.9,.68
+local function emit(q,cx,cy,slot,x1,y1,z1,x2,y2,z2,x3,y3,z3,x4,y4,z4,sh)
+ local du,dv=q.du,q.dv
+ local u0,v0=(slot%q.cols)*du,floor(slot/q.cols)*dv
+ local u1,v1=u0+du,v0+dv
+ local f,n=q.f,q.n*24
+ if abs(y1-y3)>abs(y2-y4) then -- fold along the flatter diagonal
+  f[n+1],f[n+2],f[n+3],f[n+4],f[n+5],f[n+6]=x2,y2,z2,u1,v0,sh
+  f[n+7],f[n+8],f[n+9],f[n+10],f[n+11],f[n+12]=x3,y3,z3,u1,v1,sh
+  f[n+13],f[n+14],f[n+15],f[n+16],f[n+17],f[n+18]=x4,y4,z4,u0,v1,sh
+  f[n+19],f[n+20],f[n+21],f[n+22],f[n+23],f[n+24]=x1,y1,z1,u0,v0,sh
+ else
+  f[n+1],f[n+2],f[n+3],f[n+4],f[n+5],f[n+6]=x1,y1,z1,u0,v0,sh
+  f[n+7],f[n+8],f[n+9],f[n+10],f[n+11],f[n+12]=x2,y2,z2,u1,v0,sh
+  f[n+13],f[n+14],f[n+15],f[n+16],f[n+17],f[n+18]=x3,y3,z3,u1,v1,sh
+  f[n+19],f[n+20],f[n+21],f[n+22],f[n+23],f[n+24]=x4,y4,z4,u0,v1,sh
+ end
+ local k=q.n*2;q.cells[k+1],q.cells[k+2]=cx,cy
+ q.n=q.n+1
+end
+-- a wall wherever this cell's edge stands above its neighbour's
+-- one wall, top edge (x1,ya,z1)-(x2,yb,z2) down to (la,lb): a tall one repeats the tile per course
+local function wall(q,x,y,slot,x1,ya,z1,x2,yb,z2,la,lb,sh)
+ la,lb=min(la,ya)-3,min(lb,yb)-3
+ local n=max(1,min(24,floor((max(ya-la,yb-lb)-3)/16+.5)))
+ for k=0,n-1 do
+  local t0,t1=k/n,(k+1)/n
+  emit(q,x,y,slot,x1,ya+(la-ya)*t0,z1,x2,yb+(lb-yb)*t0,z2,x2,yb+(lb-yb)*t1,z2,x1,ya+(la-ya)*t1,z1,sh)
+ end
+end
+-- a wall wherever this cell's edge stands above its neighbour's
+local function walls(q,x,y,slot,nw,ne,se,sw,noSouth)
+ local X,Z=x*16,y*16
+ local S=M.SEA
+ local _,_,c,d=topAt(x,y-1);c,d=c or S,d or S
+ if nw>d+.5 or ne>c+.5 then wall(q,x,y,slot,X+16,ne,Z,X,nw,Z,c,d,SH_N)end
+ if not noSouth then
+  local a,b=topAt(x,y+1);a,b=a or S,b or S
+  if sw>a+.5 or se>b+.5 then wall(q,x,y,slot,X,sw,Z+16,X+16,se,Z+16,a,b,SH_S)end
+ end
+ local _,b2,c2=topAt(x-1,y);b2,c2=b2 or S,c2 or S
+ if nw>b2+.5 or sw>c2+.5 then wall(q,x,y,slot,X,nw,Z,X,sw,Z+16,b2,c2,SH_W)end
+ local a3,_,_,d3=topAt(x+1,y);a3,d3=a3 or S,d3 or S
+ if ne>a3+.5 or se>d3+.5 then wall(q,x,y,slot,X+16,se,Z+16,X+16,ne,Z,d3,a3,SH_E)end
+end
+local function mapCell(q,m,x,y,mid)
+ local slot=q.toSlot[mid] or q.zero
+ local i=(y-m.oy)*m.w+(x-m.ox)+1
+ local X,Z=x*16,y*16
+ local nw,ne,se,sw=topAt(x,y)
+ local face=m.F[i]
+ if face then
+  local z,j,s=(face[1]+m.oy)*16,face[2],M.STOREY
+  emit(q,x,y,slot,X,nw-s*(j-1),z,X+16,nw-s*(j-1),z,X+16,nw-s*j,z,X,nw-s*j,z,SH_S)
+  return walls(q,x,y,slot,nw,ne,se,sw,true)
+ end
+ local b=m.B[i]
+ if b then local z0,z1=(b[1]+m.oy)*16,(b[2]+m.oy)*16;emit(q,x,y,slot,X,nw,z0,X+16,ne,z0,X+16,se,z1,X,sw,z1,1)
+ else emit(q,x,y,slot,X,nw,Z,X+16,ne,Z,X+16,se,Z+16,X,sw,Z+16,1)end
+ walls(q,x,y,slot,nw,ne,se,sw)
+end
+local function fillCell(q,x,y,mid)
+ local slot=q.toSlot[mid] or q.zero
+ local X,Z=x*16,y*16
+ local m=mapAt(x,y)
+ if m then
+  local t=(m.H[(y-m.oy)*m.w+(x-m.ox)+1] or 0)+m.off+M.Y_FILL
+  return emit(q,x,y,slot,X,t,Z,X+16,t,Z,X+16,t,Z+16,X,t,Z+16,1)
+ end
+ local t=fillTop(x,y)
+ emit(q,x,y,slot,X,t,Z,X+16,t,Z,X+16,t,Z+16,X,t,Z+16,1)
+ walls(q,x,y,slot,t,t,t,t)
+end
 local function planChunk(c,deadline,prio)
  local F=fill
  local C=M.CHUNK
@@ -212,19 +486,6 @@ local function planChunk(c,deadline,prio)
   byPair[p]=q;parts[#parts+1]=q
   return q
  end
- local function quad(q,x,y,mid,Y)
-  local slot=q.toSlot[mid] or q.zero
-  local du,dv=q.du,q.dv
-  local u0,v0=(slot%q.cols)*du,floor(slot/q.cols)*dv
-  local X,Z=x*16,y*16
-  local f,n=q.f,q.n*24
-  f[n+1],f[n+2],f[n+3],f[n+4],f[n+5],f[n+6]=X,Y,Z,u0,v0,1
-  f[n+7],f[n+8],f[n+9],f[n+10],f[n+11],f[n+12]=X+16,Y,Z,u0+du,v0,1
-  f[n+13],f[n+14],f[n+15],f[n+16],f[n+17],f[n+18]=X+16,Y,Z+16,u0+du,v0+dv,1
-  f[n+19],f[n+20],f[n+21],f[n+22],f[n+23],f[n+24]=X,Y,Z+16,u0,v0+dv,1
-  local k=q.n*2;q.cells[k+1],q.cells[k+2]=x,y
-  q.n=q.n+1
- end
  while w.row<c.y0+C do
   local y=w.row
   for _,m in ipairs(c.maps)do
@@ -236,7 +497,7 @@ local function planChunk(c,deadline,prio)
     local ok,err=pcall(function()
      for x=ax0,ax1 do
       local mid=L:midAt(x-m.ox,y-m.oy) or 0
-      if not (general and mid==SEA) then quad(q,x,y,mid,M.Y_MAP)end
+      if not (general and mid==SEA) then mapCell(q,m,x,y,mid)end
      end
     end)
     if not ok then note('ground of %s failed: %s',m.id,tostring(err));m.failed=true end
@@ -244,7 +505,7 @@ local function planChunk(c,deadline,prio)
   end
   for x=c.x0,c.x0+C-1 do
    local p,mid=fillAt(F,x,y)
-   if p then quad(part(p),x,y,mid,M.Y_FILL)end
+   if p then fillCell(part(p),x,y,mid)end
   end
   w.row=y+1
   if now()>deadline and w.row<c.y0+C then return false end
@@ -298,6 +559,7 @@ function M.step(hx,hz,budget)
   end
  end
  local t1=now()
+ if not G.relief and not reliefStep(deadline) then return end
  if not G.allLive and now()<deadline then
   if not G.sortedAt or math.abs(G.sortedAt[1]-hx)+math.abs(G.sortedAt[2]-hz)>512 then
    local C16=M.CHUNK*16
@@ -447,15 +709,15 @@ function M.warm()
  seaMesh();M.refreshSea()
 end
 
-function M.draw(draw,ox,oz,fx,fz,reach)
+function M.draw(draw,ox,oz,fx,fz,reach,oy)
  if not G then return 0 end
  local mesh=seaMesh()
  if mesh and sea.canvas then
   local sx,sz=floor(fx/16)*16,floor(fz/16)*16
-  draw(mesh,sea.canvas,Mat.translate(sx,M.SEA,sz))
+  draw(mesh,sea.canvas,Mat.translate(sx,M.SEA-(oy or 0),sz))
  end
  local Tiles=eng('src.core.game3.tileset_native')
- local model=Mat.translate(-ox,0,-oz)
+ local model=Mat.translate(-ox,-(oy or 0),-oz)
  local hx,hz=fx+ox,fz+oz
  local C16=M.CHUNK*16
  local r2=(reach+C16)^2

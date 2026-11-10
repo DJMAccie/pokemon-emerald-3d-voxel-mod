@@ -328,7 +328,7 @@ local function cutRect(s)
  local b=V.require('Gen3Scene').builtBounds()
  if not b then return nil end
  local sx,sz=s.shift[1]/16,s.shift[2]/16
- return {b[1]+sx,b[2]+sz,b[3]+sx,b[4]+sz}
+ return {b[1]+sx+1,b[2]+sz+1,b[3]+sx-1,b[4]+sz-1} -- one cell in: the raised ground is a hollow shell at its cut edge
 end
 local function carpetStep(s)
  local c=s.carpet;if not c then return end
@@ -656,7 +656,7 @@ function M.drawGround(draw)
  local s=S
  if s and s.ground then
   local reach=M.qaView and M.qaView.reach or (1500+2.4*(s.h or 0))*1.1+600
-  local n=Ground.draw(draw,s.hubOrigin[1]+s.shift[1],s.hubOrigin[2]+s.shift[2],s.focus[1],s.focus[2],reach)
+  local n=Ground.draw(draw,s.hubOrigin[1]+s.shift[1],s.hubOrigin[2]+s.shift[2],s.focus[1],s.focus[2],reach,Ground.offset(s.shifted and s.dest.map or s.from))
   s.groundDrawn=n
   return
  end
