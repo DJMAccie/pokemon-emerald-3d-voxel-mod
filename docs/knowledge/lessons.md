@@ -266,3 +266,8 @@ Rules: R-09
 Cause: BuildingVoxels.DEEPEN moved the model's y0 up 3 rows but m.tiles (indexed from the box's first row, BuildingModels compose) still started at row 0, so the roof rows were painted with the facade tiles. Gen3Blocks.ROCK_PATCH (a pin-era hack, 2026-11-03) repainted 15 grass cells east and south of the harbor as ramp rock, which the height-map builder then raised as wedges 1-2 courses above the grass.
 Fix: deepen shifts m.tiles down by its rows; the roof repeats the corrugated rows without the scalloped back row and lays the red eave (top 8 px of the facade's first tile row, DEEPEN eave=8) on the front edge; top must stay 32 (the export has no wall above it). ROCK_PATCH and rockPatch deleted: the height map already has grass 1 and 0:1 ramps there.
 Rules: R-43,R-46
+
+### L-99 Round trees looked like streaky blobs, not the tile's leaf clumps
+Cause: VoxelHull.lathe painted each crown voxel with the art row of its own height (plus a row jitter), so the dome's top, which the camera sees most, stretched the top few art rows into rings and streaks and the art's dark lower band sat under the belly, out of sight (Petya 2026-11-10: 'make the trees look more like the original tile drawing pixel art').
+Fix: The art looks down on the crown: a voxel m px from the axis takes the art row M.VIEW*m lower (eased so it never passes the lowest crown row) and the art column of the nearest of the four sides (box projection, seams continuous at the diagonals). JIT and the cap row are gone. Try paint mappings offline first: a 150-line Python port of the lathe rendered 4 variants x 6 views in one sheet, far cheaper than QA runs.
+Rules: R-09
