@@ -12,6 +12,9 @@ local M={
  PLANE_CELL=650,
  TREE=28, -- px a forest stands above its floor
  STOREY=16, -- px per facade row of a building
+ REAL_TREES=true,
+ DECK_SLAB=8, -- px thick: a cycling-road deck is an overpass, not a block down to the ground
+ NEAR=650, -- px around the flight focus where trees and buildings are real models
  log=true,
 }
 local function eng(name)return package.loaded[name] or require(name)end
@@ -100,7 +103,7 @@ local function packFloats(f,n)
  return love.data.newByteData(table.concat(parts))
 end
 
-local G
+local G,releaseTrees,prepareBuildings
 function M.state()return G end
 local function chunkKey(cx,cy)return cx..':'..cy end
 function M.begin(game,maps)
@@ -136,7 +139,7 @@ function M.begin(game,maps)
 end
 function M.release()
  if not G then return end
- for _,c in ipairs(G.order)do for _,p in ipairs(c.parts or {})do if p.mesh then pcall(p.mesh.release,p.mesh)end end end
+ for _,c in ipairs(G.order)do for _,p in ipairs(c.parts or {})do if p.mesh then pcall(p.mesh.release,p.mesh)end end;releaseTrees(c) end
  G=nil
 end
 function M.done()return G and G.allLive or false end
@@ -183,10 +186,27 @@ function M.pause()want={}end
 -- Relief: the flight ground stands at the voxel world's own heights (Gen3Elevation fields, one offset per map).
 local KIND={tree=1,roof=2,wall=3,water=4}
 local abs,min,max=math.abs,math.min,math.max
+local spec_
+local function treeShape(m,x,y)
+ local L=m.def.midLayout
+ local mid=L:midAt(x,y)
+ local sh
+ local ok=pcall(function()
+  local pair=m.pair
+  local spec=V.require('Gen3Tilesets').resolve(pair,eng('src.import.gba.versions').TILESET_PAIRS)
+  local beh=(eng('src.core.game3.scripting.interaction_scripts').behaviors[pair] or {})[mid]
+  sh=V.require('Gen3TileShape').of(spec.primary,spec.secondary,mid,beh,L:collAt(x,y))
+ end)
+ if not ok or not sh or sh.kind~='tree' or sh.fortree or sh.palmCrown or sh.roadTree then return nil end
+ if sh.canopy then return {canopy=true,ground=sh.ground or 1,mid=mid,shape=sh} end
+ return {root=sh.root and true or false,ground=sh.ground or 1,mid=mid,shape=sh}
+end
 local function survey(m)
  local E=V.require('Gen3Elevation')
  local w,h=m.w,m.h
- local H,K,R,C,B,F={},{},{},{},{},{}
+ local H,K,R,C,B,F,T,D={},{},{},{},{},{},{},{}
+ local deckSet
+ if m.pair and tostring(m.pair):find('mauville') then local ok,CR=pcall(V.require,'Gen3CyclingRoad');deckSet=ok and CR.DECK end
  local ok,f=pcall(E.field,m.def)
  if not ok then note('no heights for %s: %s',m.id,tostring(f));f=nil end
  local okP,Pin=pcall(V.require,'Gen3PinData')
@@ -198,6 +218,7 @@ local function survey(m)
   local c=f and f.cells[x..':'..y]
   local hh=c and c.height or 0
   H[i]=hh;K[i]=c and KIND[c.kind] or 0
+  if deckSet and deckSet[m.def.midLayout:midAt(x,y)] then D[i]=true end
   local a=arrows and arrows[min(x,drawn.w-1)..':'..min(y,drawn.h-1)]
   if a then
    local lo,hi=a.lo*P,a.hi*P
@@ -217,7 +238,11 @@ local function survey(m)
    else C[i]={hi,hi,lo,lo} end
   elseif c and c.slope and c.height then
    local sl=c.slope;C[i]={hh+sl[1],hh+sl[2],hh+sl[3],hh+sl[4]}
-  elseif K[i]==1 then R[i]=M.TREE end
+  elseif K[i]==1 then
+   R[i]=M.TREE
+   local sh=M.REAL_TREES and treeShape(m,x,y)
+   if sh then T[i]=sh end
+  end
  end end
  -- a building: its roof rows span the whole footprint, the wall rows below them stand up as its south face
  for x=0,w-1 do
@@ -239,7 +264,7 @@ local function survey(m)
  if m.pair and m.pair:match('^general__') then
   for y=0,h-1,2 do for x=0,w-1,2 do if L:midAt(x,y)==M.SEA_MID then m.sea=true;break end end;if m.sea then break end end
  end
- m.H,m.K,m.R,m.C,m.B,m.F,m.field,m.off=H,K,R,C,B,F,f,0
+ m.H,m.K,m.R,m.C,m.B,m.F,m.T,m.D,m.field,m.off=H,K,R,C,B,F,T,D,f,0
 end
 local function mapAt(x,y)
  local m=G.last
@@ -278,9 +303,10 @@ local function topAt(x,y)
  if m then
   local i=(y-m.oy)*m.w+(x-m.ox)+1
   local o=m.off+M.Y_MAP
+  if G.nearMode and m.claim and m.claim[i] then local t=(m.H[i] or 0)+o;return t,t,t,t end
   local c=m.C[i]
   if c then return c[1]+o,c[2]+o,c[3]+o,c[4]+o end
-  local t=(m.H[i] or 0)+(m.R[i] or 0)+o
+  local t=(m.H[i] or 0)+((G.nearMode and m.T[i]) and 0 or m.R[i] or 0)+o
   return t,t,t,t
  end
  local t=fillTop(x,y)
@@ -328,7 +354,7 @@ local function reliefStep(deadline)
  while G.surveyed<#G.maps do
   if now()>deadline then return false end
   local m=G.maps[G.surveyed+1]
-  if mapReady(m) then survey(m) end
+  if mapReady(m) then survey(m);prepareBuildings(m) end
   G.surveyed=G.surveyed+1
   G.reliefMs=(G.reliefMs or 0)+(now()-t0)*1000;t0=now()
  end
@@ -401,8 +427,9 @@ local function emit(q,cx,cy,slot,x1,y1,z1,x2,y2,z2,x3,y3,z3,x4,y4,z4,sh)
 end
 -- a wall wherever this cell's edge stands above its neighbour's
 -- one wall, top edge (x1,ya,z1)-(x2,yb,z2) down to (la,lb): a tall one repeats the tile per course
-local function wall(q,x,y,slot,x1,ya,z1,x2,yb,z2,la,lb,sh)
+local function wall(q,x,y,slot,x1,ya,z1,x2,yb,z2,la,lb,sh,slab)
  la,lb=min(la,ya)-3,min(lb,yb)-3
+ if slab then la,lb=max(la,ya-slab),max(lb,yb-slab) end
  local n=max(1,min(24,floor((max(ya-la,yb-lb)-3)/16+.5)))
  for k=0,n-1 do
   local t0,t1=k/n,(k+1)/n
@@ -410,35 +437,108 @@ local function wall(q,x,y,slot,x1,ya,z1,x2,yb,z2,la,lb,sh)
  end
 end
 -- a wall wherever this cell's edge stands above its neighbour's
-local function walls(q,x,y,slot,nw,ne,se,sw,noSouth)
+local function walls(q,x,y,slot,nw,ne,se,sw,noSouth,slab)
  local X,Z=x*16,y*16
  local S=M.SEA
  local _,_,c,d=topAt(x,y-1);c,d=c or S,d or S
- if nw>d+.5 or ne>c+.5 then wall(q,x,y,slot,X+16,ne,Z,X,nw,Z,c,d,SH_N)end
+ if nw>d+.5 or ne>c+.5 then wall(q,x,y,slot,X+16,ne,Z,X,nw,Z,c,d,SH_N,slab)end
  if not noSouth then
   local a,b=topAt(x,y+1);a,b=a or S,b or S
-  if sw>a+.5 or se>b+.5 then wall(q,x,y,slot,X,sw,Z+16,X+16,se,Z+16,a,b,SH_S)end
+  if sw>a+.5 or se>b+.5 then wall(q,x,y,slot,X,sw,Z+16,X+16,se,Z+16,a,b,SH_S,slab)end
  end
  local _,b2,c2=topAt(x-1,y);b2,c2=b2 or S,c2 or S
- if nw>b2+.5 or sw>c2+.5 then wall(q,x,y,slot,X,nw,Z,X,sw,Z+16,b2,c2,SH_W)end
+ if nw>b2+.5 or sw>c2+.5 then wall(q,x,y,slot,X,nw,Z,X,sw,Z+16,b2,c2,SH_W,slab)end
  local a3,_,_,d3=topAt(x+1,y);a3,d3=a3 or S,d3 or S
- if ne>a3+.5 or se>d3+.5 then wall(q,x,y,slot,X+16,se,Z+16,X+16,ne,Z,d3,a3,SH_E)end
+ if ne>a3+.5 or se>d3+.5 then wall(q,x,y,slot,X+16,se,Z+16,X+16,ne,Z,d3,a3,SH_E,slab)end
+end
+local curTrees
+local shapeMemo={}
+local function buildCells(m)
+ local Tiles=eng('src.core.game3.tileset_native')
+ local L=m.def.midLayout
+ local ts=Tiles._pairs[m.pair]
+ local spec=V.require('Gen3Tilesets').resolve(m.pair,eng('src.import.gba.versions').TILESET_PAIRS)
+ local beh=eng('src.core.game3.scripting.interaction_scripts').behaviors[m.pair] or {}
+ local Shapes=V.require('Gen3TileShape')
+ local cells={}
+ for y=0,m.h-1 do for x=0,m.w-1 do
+  local mid=L:midAt(x,y) or 0
+  local coll=L:collAt(x,y)
+  local k=m.pair..mid..':'..tostring(coll)
+  local sh=shapeMemo[k]
+  if sh==nil then
+   local ok,r=pcall(Shapes.of,spec.primary,spec.secondary,mid,beh[mid],coll)
+   sh=ok and r or {kind='flat'};shapeMemo[k]=sh
+  end
+  cells[x..':'..y]={cx=x,cy=y,mid=mid,pair=m.pair,nativePair=m.pair,ts=ts,primary=spec.primary,secondary=spec.secondary,shape=sh,collision=coll,base=0,behavior=beh[mid]}
+ end end
+ return cells
+end
+-- the walking scene's own building models, found on the map's cells; their cells stand flat in the near take
+function prepareBuildings(m)
+ m.prepared=true;m.claim={};m.bmesh={};m.bqueue={}
+ local ok,err=pcall(function()
+  local t7=now()
+  local cells=buildCells(m)
+  m.cellMs=(now()-t7)*1000
+  local list=V.require('BuildingModels').prepare(cells,m.def,{})
+  m.cells=cells
+  for _,bld in ipairs(list)do
+   for _,c in ipairs(bld.claimed or {})do m.claim[c.cy*m.w+c.cx+1]=bld end
+   if bld.claimed and #bld.claimed>0 then m.bqueue[#m.bqueue+1]=bld end
+  end
+ end)
+ if not ok then note('buildings of %s failed: %s',m.id,tostring(err));m.claim={};m.bqueue={} end
+ if #m.bqueue==0 then m.cells=nil end
+end
+local function addTree(ts,t,x,y,top)
+ local NT=V.require('NativeTreeArt')
+ local card
+ local seed=x*73+y*139
+ local tx,tz
+ if t.canopy then
+  local c=ts.canopyTreeCards;if not c then c={};ts.canopyTreeCards=c end
+  local mm=(x+y)%2==0 and 0x00E or 0x00F
+  card=c[mm]
+  if card==nil then
+   card=(ts.midToSlot[mm] and ts.midToSlot[mm+8] and NT.gen3({ts=ts,mid=mm,shape={art={{mm},{mm+8}},ground=t.ground}})) or false
+   c[mm]=card
+  end
+  tx,tz=x*16+8+seed%7-3,y*16+11+math.floor(seed/7)%5-2
+ elseif t.root then
+  local sh=t.shape
+  local tc=ts.flyTreeCards;if not tc then tc={};ts.flyTreeCards=tc end
+  card=tc[t.mid]
+  if card==nil then card=NT.gen3({ts=ts,mid=t.mid,shape=sh}) or false;tc[t.mid]=card end
+  tx,tz=x*16+(sh.anchorX or 16),y*16+(sh.anchorZ or 12)
+ end
+ if card then
+  NT.addInstance(card,curTrees.groups,tx,top,tz)
+ end
 end
 local function mapCell(q,m,x,y,mid)
- local slot=q.toSlot[mid] or q.zero
  local i=(y-m.oy)*m.w+(x-m.ox)+1
  local X,Z=x*16,y*16
  local nw,ne,se,sw=topAt(x,y)
- local face=m.F[i]
+ local slab=m.D and m.D[i] and M.DECK_SLAB or nil
+ local claimed=curTrees and m.claim and m.claim[i]
+ if claimed then mid=claimed.groundMid or 0x001 end
+ local t=curTrees and m.T[i]
+ if t then
+  mid=t.ground
+  if curTrees.ts then addTree(curTrees.ts,t,x,y,nw) end
+ end
+ local slot=q.toSlot[mid] or q.zero
+ local face=not claimed and m.F[i]
  if face then
   local z,j,s=(face[1]+m.oy)*16,face[2],M.STOREY
   emit(q,x,y,slot,X,nw-s*(j-1),z,X+16,nw-s*(j-1),z,X+16,nw-s*j,z,X,nw-s*j,z,SH_S)
-  return walls(q,x,y,slot,nw,ne,se,sw,true)
+  return walls(q,x,y,slot,nw,ne,se,sw,true,slab)
  end
- local b=m.B[i]
+ local b=not claimed and m.B[i]
  if b then local z0,z1=(b[1]+m.oy)*16,(b[2]+m.oy)*16;emit(q,x,y,slot,X,nw,z0,X+16,ne,z0,X+16,se,z1,X,sw,z1,1)
  else emit(q,x,y,slot,X,nw,Z,X+16,ne,Z,X+16,se,Z+16,X,sw,Z+16,1)end
- walls(q,x,y,slot,nw,ne,se,sw)
+ walls(q,x,y,slot,nw,ne,se,sw,nil,slab)
 end
 local function fillCell(q,x,y,mid)
  local slot=q.toSlot[mid] or q.zero
@@ -451,6 +551,29 @@ local function fillCell(q,x,y,mid)
  local t=fillTop(x,y)
  emit(q,x,y,slot,X,t,Z,X+16,t,Z,X+16,t,Z+16,X,t,Z+16,1)
  walls(q,x,y,slot,t,t,t,t)
+end
+-- the real tree models of a chunk, one instanced batch per card mesh; 'rect' (cells) leaves the walking scene's own trees out
+local function buildTrees(c,rect)
+ local out={}
+ local NT=V.require('NativeTreeArt')
+ local Inst=V.require('ModelInstances')
+ for _,g in pairs(c.treeGroups)do
+  local pos=g.positions
+  if rect then
+   pos={}
+   for _,p in ipairs(g.positions)do
+    local cx,cy=floor(p[1]/16),floor(p[3]/16)
+    if not (cx>=rect[1] and cx<=rect[3] and cy>=rect[2] and cy<=rect[4]) then pos[#pos+1]=p end
+   end
+  end
+  local b=#pos>0 and Inst.new(g.mesh,pos)
+  if b then out[#out+1]=b end
+ end
+ return out
+end
+function releaseTrees(c)
+ for _,b in ipairs(c.trees or {})do pcall(b.release,b)end
+ c.trees=nil
 end
 local function planChunk(c,deadline,prio)
  local F=fill
@@ -475,8 +598,10 @@ local function planChunk(c,deadline,prio)
  if not ready then return false end
  local Tiles=eng('src.core.game3.tileset_native')
  local w=c.work
- if not w then w={parts={},byPair={},row=c.y0};c.work=w end
+ if not w then w={parts={},byPair={},row=c.y0,trees={groups={}}};c.work=w end
  local parts,byPair=w.parts,w.byPair
+ curTrees=c.near and w.trees or nil
+ G.nearMode=c.near or false
  local function part(p)
   local q=byPair[p]
   if q then return q end
@@ -488,21 +613,33 @@ local function planChunk(c,deadline,prio)
  end
  while w.row<c.y0+C do
   local y=w.row
-  for _,m in ipairs(c.maps)do
+  local mi=w.mi or 1
+  while mi<=#c.maps do
+   local m=c.maps[mi]
    if not m.failed and y>=m.oy and y<m.oy+m.h then
     local L=m.def.midLayout
     local general=m.pair:match('^general__')~=nil
     local q=part(m.pair)
+    if curTrees then
+     curTrees.ts=Tiles._pairs[m.pair]
+     if curTrees.ts and not curTrees.ts.imageData then curTrees.ts=nil end
+    end
     local ax0,ax1=math.max(c.x0,m.ox),math.min(c.x0+C,m.ox+m.w)-1
+    local x0=w.x or ax0
     local ok,err=pcall(function()
-     for x=ax0,ax1 do
+     for x=x0,ax1 do
+      if curTrees and x>x0 and now()>deadline then w.mi,w.x=mi,x;return true end
       local mid=L:midAt(x-m.ox,y-m.oy) or 0
       if not (general and mid==SEA) then mapCell(q,m,x,y,mid)end
      end
+     w.x=nil
     end)
-    if not ok then note('ground of %s failed: %s',m.id,tostring(err));m.failed=true end
+    if not ok then note('ground of %s failed: %s',m.id,tostring(err));m.failed=true;w.x=nil end
+    if w.x then return false end
    end
+   mi=mi+1
   end
+  w.mi=nil
   for x=c.x0,c.x0+C-1 do
    local p,mid=fillAt(F,x,y)
    if p then fillCell(part(p),x,y,mid)end
@@ -513,6 +650,11 @@ local function planChunk(c,deadline,prio)
  local keep={}
  for _,q in ipairs(parts)do if q.n>0 then keep[#keep+1]=q end end
  c.parts=keep;c.state='planned';c.work=nil
+ curTrees=nil;G.nearMode=false
+ if c.near then
+  c.treeGroups=w.trees.groups
+  if next(c.treeGroups) then c.trees=buildTrees(c,nil) end
+ end
  return true
 end
 
@@ -560,7 +702,7 @@ function M.step(hx,hz,budget)
  end
  local t1=now()
  if not G.relief and not reliefStep(deadline) then return end
- if not G.allLive and now()<deadline then
+ if (not G.allLive or G.nearPending) and now()<deadline then
   if not G.sortedAt or math.abs(G.sortedAt[1]-hx)+math.abs(G.sortedAt[2]-hz)>512 then
    local C16=M.CHUNK*16
    for _,c in ipairs(G.order)do
@@ -578,14 +720,68 @@ function M.step(hx,hz,budget)
     planChunk(c,deadline,1+rank*.01)
    end
   end
-  if not todo and #G.alloc==0 then
+  if not G.allLive and not todo and #G.alloc==0 then
    local any=false
-   for _,c in ipairs(G.order)do if c.state~='live' then any=true;break end end
+   for _,c in ipairs(G.order)do if c.state~='live' and not c.near then any=true;break end end
    if not any then
     G.allLive=true
     note('world laid: %d quads in %d meshes, %.1f s after the first take-off (plan %.0f ms, fill %.0f ms)',
      G.quads,G.meshes,now()-G.t0,G.planMs,G.fillMs)
    end
+  end
+ end
+ -- chunks close to the flight get a second take with the real models
+ if G.relief and G.allLive then
+  local C16=M.CHUNK*16
+  local r=M.NEAR+C16
+  G.nearPending=false
+  for _,c in ipairs(G.order)do
+   if not c.near and c.state=='live' and not c.nearObj and c.hasT~=false then
+    local dx,dz=c.x0*16+C16/2-hx,c.y0*16+C16/2-hz
+    if dx*dx+dz*dz<=r*r then
+     local any,ready=false,true
+     for _,m in ipairs(c.maps)do
+      if m.H and not m.failed then
+       if not m.prepared then
+        if not G.prepFrame or G.prepFrame~=G.frame then G.prepFrame=G.frame;local t2=now();prepareBuildings(m);G.prepMs=(G.prepMs or 0)+(now()-t2)*1000;if M.log and now()-t2>.01 then note('prep %s %.0f ms (cells %.0f, %dx%d)',m.id,(now()-t2)*1000,m.cellMs or 0,m.w,m.h) end end
+        ready=m.prepared
+       end
+       if m.T and next(m.T) or (m.bqueue and #m.bqueue>0) or (m.bmesh and #m.bmesh>0) then any=true end
+      end
+     end
+     if not ready then
+     elseif any then
+      local n={cx=c.cx,cy=c.cy,x0=c.x0,y0=c.y0,maps=c.maps,state='todo',near=true,parent=c,fillPairs=c.fillPairs,cutKey=nil}
+      c.nearObj=n;G.order[#G.order+1]=n;G.sortedAt=nil
+     else c.hasT=false end
+    end
+   end
+  end
+  for _,c in ipairs(G.order)do if c.near and c.state~='live' then G.nearPending=true;break end end
+ end
+ -- one building model per frame, nearest first
+ if G.relief and G.allLive then
+  local best,bm,bd
+  for _,m in ipairs(G.maps)do if m.bqueue and #m.bqueue>0 then
+   for k,bld in ipairs(m.bqueue)do
+    local dx,dz=(m.ox+bld.cx+bld.width/2)*16-hx,(m.oy+bld.cy+bld.depth/2)*16-hz
+    local d=dx*dx+dz*dz
+    if d<=(M.NEAR+256)^2 and (not bd or d<bd) then best,bm,bd=k,m,d end
+   end
+  end end
+  if best and now()<deadline+.004 then
+   local bld=table.remove(bm.bqueue,best)
+   local t3=now()
+   if not bm.cellsTs then bm.cellsTs=true;local ts=eng('src.core.game3.tileset_native')._pairs[bm.pair];for _,c in pairs(bm.cells)do c.ts=ts end end
+   bld.ts=eng('src.core.game3.tileset_native')._pairs[bm.pair] or bld.ts
+   local ok,r=pcall(V.require('BuildingModels').mesh,bld,bm.cells)
+   if now()-t3>.01 then note('bmesh %s %s %.0f ms',bm.id,tostring(bld.name),(now()-t3)*1000) end
+   if ok and r then
+    local i=(bld.cy+bld.depth-1)*bm.w+bld.cx+math.floor(bld.width/2)+1
+    bm.bmesh[#bm.bmesh+1]={mesh=r.mesh,image=r.image,bld=bld,m=bm,y=(bm.H[i] or 0)+bm.off+M.Y_MAP}
+    G.bmeshes=(G.bmeshes or 0)+1
+   elseif not ok then note('building %s of %s: %s',tostring(bld.name),bm.id,tostring(r)) end
+   if #bm.bqueue==0 then bm.cells=nil end
   end
  end
  G.planMs=G.planMs+(now()-t1)*1000
@@ -594,12 +790,12 @@ function M.coverage(hx,hz,d)
  if not G then return 0,0 end
  local live,all=0,0
  local C16=M.CHUNK*16
- for _,c in ipairs(G.order)do
+ for _,c in ipairs(G.order)do if not c.near then
   local x0,z0=c.x0*16,c.y0*16
   local dx=hx<x0 and x0-hx or (hx>x0+C16 and hx-x0-C16 or 0)
   local dz=hz<z0 and z0-hz or (hz>z0+C16 and hz-z0-C16 or 0)
   if dx*dx+dz*dz<=d*d then all=all+1;if c.state=='live' then live=live+1 end end
- end
+ end end
  return live,all
 end
 
@@ -631,6 +827,9 @@ function M.cut(rect)
  for _,c in ipairs(G.order)do
   if c.state=='live' and c.cutKey~=key and (c.liveFrame or -1)<(G.frame or 0)-1 then
    local hit=rect and not (rect[3]<c.x0 or rect[1]>c.x0+C-1 or rect[4]<c.y0 or rect[2]>c.y0+C-1)
+   if (hit or c.cut) and c.treeGroups and next(c.treeGroups) then
+    releaseTrees(c);c.trees=buildTrees(c,hit and rect or nil)
+   end
    if hit or c.cut then
     for _,p in ipairs(c.parts)do
      if p.mesh then
@@ -721,9 +920,19 @@ function M.draw(draw,ox,oz,fx,fz,reach,oy)
  local hx,hz=fx+ox,fz+oz
  local C16=M.CHUNK*16
  local r2=(reach+C16)^2
+ local nearR2=(M.NEAR+C16*.75)^2
+ for _,c in ipairs(G.order)do if not c.near and c.nearObj then c.nearDraw=false;if c.nearObj.state=='live' and c.nearObj.cutKey then local dx,dz=c.x0*16+C16/2-hx,c.y0*16+C16/2-hz;c.nearDraw=dx*dx+dz*dz<=nearR2 end end end
  local drawn=0
+ for _,m in ipairs(G.maps)do for _,b in ipairs(m.bmesh or {})do
+  local bld=b.bld
+  local x0,y0=m.ox+bld.cx,m.oy+bld.cy
+  local ca=G.byNum[(floor(y0/M.CHUNK)+2048)*4096+floor(x0/M.CHUNK)+2048]
+  local cb=G.byNum[(floor((y0+bld.depth-1)/M.CHUNK)+2048)*4096+floor((x0+bld.width-1)/M.CHUNK)+2048]
+  if ca and cb and ca.nearDraw and cb.nearDraw then draw(b.mesh,b.image,Mat.translate(m.ox*16-ox,b.y-(oy or 0),m.oy*16-oz));drawn=drawn+1 end
+ end end
  for _,c in ipairs(G.order)do
-  if c.state=='live' and c.cutKey then
+  local show=c.near and c.parent.nearDraw or (not c.near and not c.nearDraw)
+  if show and c.state=='live' and c.cutKey then
    local dx,dz=c.x0*16+C16/2-hx,c.y0*16+C16/2-hz
    if dx*dx+dz*dz<=r2 then
     for _,p in ipairs(c.parts)do
@@ -738,6 +947,10 @@ function M.draw(draw,ox,oz,fx,fz,reach,oy)
        drawn=drawn+1
       end
      end
+    end
+    if c.trees and #c.trees>0 then
+     local img=V.require('NativeTreeArt').image()
+     for _,b in ipairs(c.trees)do draw(b,img,model) end
     end
    end
   end
