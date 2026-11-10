@@ -276,3 +276,8 @@ Rules: R-09
 Cause: NativeTreeArt.gen3 keyed its card cache by #art and the TOP tile only, so Lavaridge trees {0x210 over 0x218/0x211/0x21A/0x203/0x3B8} shared one card and whichever was built first (scene extent, zoom) decided every tree's art; and Gen3Boundary forced collision 7 on border tiles, so a crown tile (0x210) became a root tree of its own (crown over crown) above the tree below it (Petya 2026-11-10: 'sliced/stacked trees in the distance').
 Fix: The card id lists every tile of the art; Gen3Boundary gives crown (over) tiles of Gen3TreeStamps.GENERAL collision 0 like the map does, so only the trunk tile roots a tree. Compare QA at zoom 0 and -2 with EM_TOUR=1 level 7: both must give the same trees.
 Rules: R-23
+
+### L-101 Pokemon Center roof: slotted hump on top read as sliced slabs
+Cause: The baked model (data/buildings/pokemon_center.lua) extruded the roof art's skyline into a hump h37..44 over x17..46 with six 1 px slots down to h37 at the art's dark lines; from a low camera the slots' tan side faces looked like loose slices (Petya: 'sliced ridges').
+Fix: tools/buildings/center_roof.py drops the hump: the middle is level with the roof plane (h36) and takes the art row per z from the flat roof beside it (column 15). All Centers share this model; the Mart has no hump.
+Rules: R-09
