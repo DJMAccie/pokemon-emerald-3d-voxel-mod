@@ -86,7 +86,7 @@ local function lathe(w,h,sample)
    local r={row=row,L=L,R=R,cx=(L+R+1)/2,rho=(R-L+1)/2}
    r.shape=r.rho
    if y<ny*M.TRUNK_ROWS then
-    for x=L,R do local k=row[x];if k then
+    for x=L,R do local k=row[x];if k and not r.trunk then
      local rr,gg,bb=math.floor(k/65536),math.floor(k/256)%256,k%256
      if rr+gg+bb>=M.INK and rr>=gg then r.trunk=k end
     end end
