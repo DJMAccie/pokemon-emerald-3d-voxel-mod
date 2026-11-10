@@ -946,6 +946,8 @@ local DOOR={[0x60]=true,[0x69]=true,[0x6E]=true,[0x6F]=true,[0x8D]=true}
 local function door(emit,uvFor,c)
  local g=uvFor(c.ts,c.mid)
  if not g then return end
+ -- the threshold tile's foot rows are a grey step; only its dark middle goes on the floor
+ do local u=g;local function at(a,b)local function m(j)return u[1][j]*(1-a)*(1-b)+u[2][j]*a*(1-b)+u[3][j]*a*b+u[4][j]*(1-a)*b end;return {m(1),m(2)} end;g={at(.3,.3),at(.7,.3),at(.7,.7),at(.3,.7)} end
  local f,x,z=(c.floorHigh or c.base or 0)+.02,c.cx*16,c.cy*16
  emit({{x,f,z},{x+16,f,z},{x+16,f,z+16},{x,f,z+16}},g,1)
 end

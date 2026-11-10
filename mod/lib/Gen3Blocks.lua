@@ -901,7 +901,7 @@ function M.append(c,cells,emit,uvFor)
    return insetOwn(i,y),insetOwn(j,y)
   end
  end
- local function ins(i,j)if not drops[i] then return 0 end;local o=endAt(i,j)(T);return o-M.SEAM end
+ local function ins(i,j)if not drops[i] then return (top[i] and top[i]>T+.25) and -1 or 0 end;local o=endAt(i,j)(T);return o-M.SEAM end
  emit({{x+ins(2,4),T,z+ins(4,2)},{x+16-ins(1,4),T,z+ins(4,1)},{x+16-ins(1,3),T,z+16-ins(3,1)},{x+ins(2,3),T,z+16-ins(3,2)}},lid,1)
  local function ends(i,ja,jb)
   local b={}

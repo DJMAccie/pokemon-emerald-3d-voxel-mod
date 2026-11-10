@@ -290,3 +290,7 @@ Rules: R-29
 ### L-103 Sky crack at ramp wall edges
 Cause: Gen3Blocks.rampWall walls had no overlap with neighbours (1 px sky at Sootopolis wedge)
 Fix: reach 3*M.SEAM past true ends, under the foot, over the lid
+
+### L-104 Grey slice and sky hairlines at cave entrances
+Cause: Gen3Mass.door drew the whole threshold tile (grey step rows) flat on the floor; lids beside a higher wall ended exactly at its plane
+Fix: door() crops to the tile's dark middle (.3-.7); lid reaches 1 px into a higher neighbour (Gen3Blocks ins)
