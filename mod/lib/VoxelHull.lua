@@ -12,10 +12,8 @@ M.FOOT_R=3 -- trunk radius, in card pixels
 M.BELLY=4 -- rows from the foot over which the underside of the crown rounds off
 M.TOP=2 -- rows from the top over which the crown rounds off into a dome
 M.BUMP=.04 -- how far the crown outline wobbles in and out (share of the radius), so it reads as leaf clumps
-M.JIT=.75 -- rows the pattern may be taken from above or below, so the colour bands break up
+M.VIEW=.5 -- the art looks down on the crown: a pixel outward from the axis shows the art this many rows lower
 M.SEAM=1 -- columns at the card edge left out of the wrap, so no outline stripe where front and back meet
-M.CAP_FROM=.95 -- rows above this share of the height have a top that shows the pattern of one lower row (spokes, like the art)
-M.CAP_ROW=.85 -- that row, as a share of the height
 M.TRUNK_ROWS=.3 -- share of the card height, from the foot, where a non-green pixel is trunk
 local NEIGH={{-1,0},{1,0},{0,-1},{0,1}}
 local function meshVox(vox,paints,nx,ny,nz,step,w,bottom)
@@ -66,8 +64,8 @@ local function meshVox(vox,paints,nx,ny,nz,step,w,bottom)
  end end
  return out
 end
--- A tree as a body of revolution: each row is a disc as wide as the card row, and the card row's
--- pattern is wrapped round it (front art on the front, mirrored on the back), so every angle shows leaves
+-- A tree as a body of revolution: each row is a disc as wide as the card row, painted with the card
+-- as seen from each of the four sides, so every angle shows the art's leaf clumps
 local function wobble(phi,y,a,b)return (math.sin(phi*3+y*.9+a)+math.sin(phi*5-y*.55+b))/2 end
 local function lathe(w,h,sample)
  local nx,ny,nz=w,h,w
@@ -124,13 +122,8 @@ local function lathe(w,h,sample)
  local hp=math.pi/2
  local topY=0
  for y in pairs(rows)do if y>topY then topY=y end end
- local capFrom=math.floor(topY*M.CAP_FROM)
- local capRow
- for yy=math.floor(topY*M.CAP_ROW),0,-1 do local c=rows[yy]
-  local k=c and c.row[math.floor(c.cx)]
-  if k and math.floor(k/65536)+math.floor(k/256)%256+k%256>=M.INK then capRow=c;break end
- end
- capRow=capRow or rows[topY]
+ local yLow=topY
+ for y,r in pairs(rows)do if not r.trunk and y<yLow then yLow=y end end
  for y,r in pairs(rows)do
   Budget.check()
   for x=0,nx-1 do for z=0,nz-1 do
@@ -141,16 +134,20 @@ local function lathe(w,h,sample)
     local dx,dz=x+.5-r.cx,z+.5-nz/2
     local phi=math.atan2(dx,dz)
     local a=math.abs(phi);if a>hp then a=math.pi-a end
-    local src=r
-    if not r.trunk then
-     local j=math.floor(M.JIT*wobble(phi,y,2.3,.4)+.5);src=rows[y+j] or r
+    local src,sx=r,nil
+    if not r.trunk and y>yLow then
+     -- the art is drawn from above: paint as seen from the nearest of the four sides, lower art rows further out
+     local m,t
+     if math.abs(dz)>=math.abs(dx) then m=math.abs(dz);t=dz>=0 and dx or -dx else m=math.abs(dx);t=dx>=0 and dz or -dz end
+     local av=y-yLow
+     src=rows[math.floor(y-av*(1-math.exp(-M.VIEW*m/av))+.5)] or r
      if src.trunk then src=r end
+     sx=math.floor(src.cx+t)
+    else
+     local span=math.max(.5,src.rho-M.SEAM)
+     sx=math.floor(src.cx+(phi<0 and -1 or 1)*span*math.sin(a))
     end
-    if y>=capFrom and not solid[key(x,y+1,z)] then src=capRow end
-    local span=math.max(.5,src.rho-M.SEAM)
-    -- Project by horizontal position so the front preserves the source leaf clusters.
-    local u=src.cx+(phi<0 and -1 or 1)*span*math.sin(a)
-    local sx=math.max(src.L,math.min(src.R,math.floor(u)))
+    sx=math.max(src.L,math.min(src.R,sx))
     local c=src.row[sx]
     if not c then
      for d=1,nx do c=src.row[sx-d] or src.row[sx+d];if c then break end end
