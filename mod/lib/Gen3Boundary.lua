@@ -45,6 +45,11 @@ function M.setWorld(maps)
  end
 end
 local dewfordTrees={0x1D4,0x1D5,0x1DC,0x1DD}
+-- A crown tile is not solid on the map (the trunk tile below owns the tree): as a root of its own it drew a second crown above the tree
+local function crownTile(secondary,mid)
+ local g=V.require('Gen3TreeStamps').GENERAL[secondary]
+ if g then for _,o in ipairs(g.over)do if o==mid then return true end end end
+end
 M.SKY={EM_SKY_PILLAR_TOP=true}
 M.SEA={EM_SOOTOPOLIS_CITY=0x279}
 function M.resolve(rs,x,y)
@@ -70,7 +75,7 @@ function M.resolve(rs,x,y)
   if mid and mid~=0 then
    local spec=Pairs.resolve(pair,Versions.TILESET_PAIRS)
    local behavior=(require('src.core.game3.scripting.interaction_scripts').behaviors[pair] or {})[mid]
-   local shape=Shapes.of(spec.primary,spec.secondary,mid,behavior,7)
+   local shape=Shapes.of(spec.primary,spec.secondary,mid,behavior,crownTile(spec.secondary,mid) and 0 or 7)
    local biome=shape.kind=='tree' and 'forest' or shape.kind=='cliff' and 'mountain'
     or shape.kind=='water' and 'water' or 'ground'
    if M.SEA[id] then return mid,L.pair,{kind='water',reviewedSurface=true},'water' end

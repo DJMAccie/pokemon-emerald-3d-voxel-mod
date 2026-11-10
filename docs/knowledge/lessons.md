@@ -271,3 +271,8 @@ Rules: R-43,R-46
 Cause: VoxelHull.lathe painted each crown voxel with the art row of its own height (plus a row jitter), so the dome's top, which the camera sees most, stretched the top few art rows into rings and streaks and the art's dark lower band sat under the belly, out of sight (Petya 2026-11-10: 'make the trees look more like the original tile drawing pixel art').
 Fix: The art looks down on the crown: a voxel m px from the axis takes the art row M.VIEW*m lower (eased so it never passes the lowest crown row) and the art column of the nearest of the four sides (box projection, seams continuous at the diagonals). JIT and the cap row are gone. Try paint mappings offline first: a 150-line Python port of the lathe rendered 4 variants x 6 views in one sheet, far cheaper than QA runs.
 Rules: R-09
+
+### L-100 Far trees looked stacked and changed with the camera zoom
+Cause: NativeTreeArt.gen3 keyed its card cache by #art and the TOP tile only, so Lavaridge trees {0x210 over 0x218/0x211/0x21A/0x203/0x3B8} shared one card and whichever was built first (scene extent, zoom) decided every tree's art; and Gen3Boundary forced collision 7 on border tiles, so a crown tile (0x210) became a root tree of its own (crown over crown) above the tree below it (Petya 2026-11-10: 'sliced/stacked trees in the distance').
+Fix: The card id lists every tile of the art; Gen3Boundary gives crown (over) tiles of Gen3TreeStamps.GENERAL collision 0 like the map does, so only the trunk tile roots a tree. Compare QA at zoom 0 and -2 with EM_TOUR=1 level 7: both must give the same trees.
+Rules: R-23

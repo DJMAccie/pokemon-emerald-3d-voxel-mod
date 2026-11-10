@@ -151,8 +151,10 @@ end
 function M.gen3(c)
  local ts=c.ts;local forest=c.shape.spacing==3
  local art=c.shape.art
+ local tiles='' -- every tile of the art: trees that share a crown tile but not a trunk tile are different cards
+ if art then local t={};for _,row in ipairs(art)do t[#t+1]=table.concat(row,',')end;tiles=table.concat(t,'/')end
  local id=tostring(ts.imageData)..':'..tostring(ts.overImageData)..':'..tostring(forest)..':'..(c.shape.ground or 1)
-  ..':'..(art and (#art..'x'..art[1][1]..'t'..(c.shape.artTipRows or 0)..'g') or '')
+  ..':'..(art and (#art..'x'..tiles..'t'..(c.shape.artTipRows or 0)..'g') or '')
  if entries[id]then return variant(entries[id],forest and 'tiered' or 'conifer')end
  local rows=c.shape.art or (forest and {{1,641,1},{648,649,650},{656,657,658},{672,673,674},{675,676,677}}
    or {{14,15},{28,29},{36,37}})
