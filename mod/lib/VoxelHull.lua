@@ -8,8 +8,10 @@ M.TIER=.3
 M.LUMP=.8
 M.LATHE=true
 M.LATHE_SKEW=3 -- widest the row centres of a card may drift for it to be turned into a round tree
-M.FOOT_R=3 -- trunk radius, in card pixels
-M.BELLY=4 -- rows from the foot over which the underside of the crown rounds off
+M.FOOT_R=4 -- trunk radius, in card pixels
+M.BELLY=4 -- rows from the foot over which the underside of a trunkless crown rounds off
+M.UNDER=12 -- rows over which a crown on a trunk rounds in to the trunk, so the trunk shows from above
+M.LIFT=4 -- rows the trunk is lengthened by (its own lowest row repeated)
 M.TOP=2 -- rows from the top over which the crown rounds off into a dome
 M.BUMP=.04 -- how far the crown outline wobbles in and out (share of the radius), so it reads as leaf clumps
 M.VIEW=.5 -- the art looks down on the crown: a pixel outward from the axis shows the art this many rows lower
@@ -97,9 +99,22 @@ local function lathe(w,h,sample)
  if lo and hi-lo>M.LATHE_SKEW then return nil end -- a leaning or lopsided tree (clumps on a bent trunk) is not round
  local ybot
  for y in pairs(rows)do if not ybot or y<ybot then ybot=y end end
+ local yTrunk,bark
+ for y,r in pairs(rows)do if r.trunk and (not yTrunk or y>yTrunk) then yTrunk,bark=y,r.trunk end end
+ local base,under,least=ybot,M.BELLY,.5
+ if yTrunk then
+  local up={}
+  for y,r in pairs(rows)do
+   if y<=yTrunk then r.trunk=r.trunk or bark;r.shape=0 end
+   up[y+M.LIFT]=r
+  end
+  for i=0,M.LIFT-1 do up[ybot+i]=rows[ybot] end
+  rows=up;ny=ny+M.LIFT
+  base,under,least=yTrunk+M.LIFT+1,M.UNDER,M.FOOT_R
+ end
  for y,r in pairs(rows)do
-  local d=y-ybot
-  if d<M.BELLY then r.shape=math.max(.5,r.rho*math.sqrt(1-((M.BELLY-d)/M.BELLY)^2)) end
+  local d=y-base
+  if d>=0 and d<under then r.shape=math.max(least,r.rho*math.sqrt(1-((under-d)/under)^2)) end
  end
  local top=0
  for y in pairs(rows)do if y>top then top=y end end
@@ -114,7 +129,7 @@ local function lathe(w,h,sample)
   for x=0,nx-1 do for z=0,nz-1 do
    local dx,dz=x+.5-r.cx,z+.5-nz/2
    local lim=r.shape
-   if y-ybot>=M.BELLY then lim=lim*(1+M.BUMP*wobble(math.atan2(dx,dz),y,0,1.7)) end
+   if y-ybot>=M.BELLY and lim>0 then lim=lim*(1+M.BUMP*wobble(math.atan2(dx,dz),y,0,1.7)) end
    if r.trunk and M.FOOT_R>lim then lim=M.FOOT_R end
    if dx*dx+dz*dz<=lim*lim then solid[key(x,y,z)]=true end
   end end
