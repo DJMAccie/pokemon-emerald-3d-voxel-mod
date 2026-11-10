@@ -32,7 +32,7 @@ functions (`name@line`). Data tables are in `mod/data/` (generated; never read t
 - `Gen3AshPine` 127: Mt
 - `Gen3Blocks` 917: Gen3Blocks
   - key@14 pinned@19 prepare@24 set@66 isStone@71 looseStones@75 roundEnd@114 arrowRamps@130 restoreHeights@189 buildRamps@193 liftSpots@312 lowerArches@335 buildSlopes@344 floorOf@393 besideHeight@394 lumOf@404 massStats@415 faceLike@432 faceMid@441 grassTop@475 notRock@491 edgeCrop@494 impure@524 cropWater@542 ledgeFaceUV@553 topLike@586 wet@592 lidUV@609 lidUV0@614 insetAt@644 face@651 rampWall@685 stairFlight@710 stairSide@730 appendRamp@753 append@800
-- `Gen3Cave` 349: Cave masses and boulders use their native palette and silhouette
+- `Gen3Cave` 379: Cave masses and boulders use their native palette and silhouette
 - `Gen3Decks` 379: Stepped decks the cartridge rates flat
 - `Gen3Hills` 559: Sand hills
   - ckey@41 pk@42 walk@43 floorOf@47 bankOk@49 claims@53 tileInfo@74 tiers@103 prepare@189 sub@388 clip@395 clipY@407 sidePoint@441 append@446

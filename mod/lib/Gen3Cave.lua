@@ -47,8 +47,38 @@ local STONE_LUM=.49 -- the stone tops (cream, grey) against their navy shade
 local STONE_TONE=.38 -- darkest colour a dome is painted with
 local STONE_MIN=6 -- fewest lit pixels that make a stone
 local D4={{1,0},{-1,0},{0,1},{0,-1}}
+-- The rim's bottom-layer art carries the ground round the ring (sand, grass, rock) and pool water. Paint all of it stone-dark, so
+-- the plateau top, the wall below and the domes show only grey stones on dark stone (Petya: "its a bath").
+local COBBLE={{41/255,49/255,90/255},{66/255,74/255,107/255},{99/255,99/255,123/255}} -- the art's mortar, stone, lit edge
+local function cobble(x,y) -- 8 x 4 px stones, every other course shifted half a stone; repeats every 8 px so tiles join
+ local xx=(x+(math.floor(y/4)%2)*4)%8
+ if y%4==3 or xx==7 then return COBBLE[1] end
+ if y%4==0 and xx<6 then return COBBLE[3] end
+ return COBBLE[2]
+end
+local cleaned=setmetatable({},{__mode='k'})
+local function cleanTile(ts,mid)
+ local done=cleaned[ts];if not done then done={};cleaned[ts]=done end
+ if done[mid] then return end
+ done[mid]=true
+ local slot=ts.midToSlot[mid];if not (slot and ts.imageData) then return end
+ local px,py=slot%ts.cols*16,math.floor(slot/ts.cols)*16
+ local changed=false
+ for y=0,15 do for x=0,15 do
+  local r,g,b,a=ts.imageData:getPixel(px+x,py+y)
+  if (a or 1)<=.5 or math.abs(g-r)>=.1 or r>b+.2 then
+   local q=cobble(x,y)
+   ts.imageData:setPixel(px+x,py+y,q[1],q[2],q[3],1);changed=true
+  end
+ end end
+ if changed then
+  local ok,NT=pcall(require,'src.core.game3.tileset_native')
+  if ok and NT and NT.flush then pcall(NT.flush,ts,true,false) end
+ end
+end
 local function stoneMasks(c)
  local ts=c.ts
+ cleanTile(ts,c.mid)
  local slot=ts.midToSlot[c.mid];local px,py=slot%ts.cols*16,math.floor(slot/ts.cols)*16
  local lit,solid={}, {}
  for y=0,15 do for x=0,15 do
