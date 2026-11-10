@@ -334,7 +334,7 @@ function M.of(primary,secondary,mid,behavior,collision)
  if pin=='lamptop' then return {kind='flat',lampTop=true,reviewedSurface=true} end
  if pin=='leagueGate' then return {kind='flat',reviewedSurface=true,leagueGate=true} end
  if pin=='poleFoot' then return {kind='flat',reviewedSurface=true,groundMid=0x271} end
- if pin=='rim' then return {kind='rock',ground={0x2A8,0x2A3,0x2BC,0x274,0x272,0x001},height=8} end
+ if pin=='rim' then return {kind='rock',ground={0x2A8,0x2A3,0x2BC,0x274,0x272,0x001},height=8,stones=true} end
  if pin=='awning' then return {kind='awning',ground=ground,height=28} end
  if pin=='shrub' then return {kind='shrub',ground=ground,height=10} end
  if pin=='steps' then return {kind='steps',height=6} end

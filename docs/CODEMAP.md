@@ -30,9 +30,9 @@ functions (`name@line`). Data tables are in `mod/data/` (generated; never read t
 - `TerrainLevels` 399: Presentation-only floor topology
 ### Terrain, rock, water edges
 - `Gen3AshPine` 127: Mt
-- `Gen3Blocks` 868: Gen3Blocks
-  - key@14 pinned@19 rockPatch@27 prepare@35 set@78 isStone@83 looseStones@87 roundEnd@126 arrowRamps@142 restoreHeights@201 buildRamps@205 liftSpots@324 lowerArches@347 buildSlopes@356 floorOf@405 besideHeight@406 lumOf@416 massStats@427 faceLike@444 faceMid@453 grassTop@487 ledgeFaceUV@500 topLike@530 lidUV@536 insetAt@565 face@572 rampWall@606 stairFlight@631 stairSide@651 appendRamp@674 waterCols@721 cropWater@745 append@753
-- `Gen3Cave` 292: Cave masses and boulders use their native palette and silhouette
+- `Gen3Blocks` 929: Gen3Blocks
+  - key@14 pinned@19 rockPatch@27 prepare@35 set@78 isStone@83 looseStones@87 roundEnd@126 arrowRamps@142 restoreHeights@201 buildRamps@205 liftSpots@324 lowerArches@347 buildSlopes@356 floorOf@405 besideHeight@406 lumOf@416 massStats@427 faceLike@444 faceMid@453 grassTop@487 notRock@503 edgeCrop@506 impure@536 cropWater@554 ledgeFaceUV@565 topLike@598 wet@604 lidUV@621 lidUV0@626 insetAt@656 face@663 rampWall@697 stairFlight@722 stairSide@742 appendRamp@765 append@812
+- `Gen3Cave` 349: Cave masses and boulders use their native palette and silhouette
 - `Gen3Decks` 379: Stepped decks the cartridge rates flat
 - `Gen3Hills` 559: Sand hills
   - ckey@41 pk@42 walk@43 floorOf@47 bankOk@49 claims@53 tileInfo@74 tiers@103 prepare@189 sub@388 clip@395 clipY@407 sidePoint@441 append@446

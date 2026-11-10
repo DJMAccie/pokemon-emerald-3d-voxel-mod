@@ -251,3 +251,7 @@ Fix: Gen3Scene drop wall: a grass top (Gen3Blocks.grassTop) on a height-map cell
 ### L-95 Route 112 cable-car poles lay along the rock slope
 Cause: Only foot tile 0x264 was pinned to plain ground; shaft/head tiles 0x254 0x255 0x25C 0x25D and foot 0x265 (lavaridge) kept their baked pole art draped on cliff cells, and the west pylon (4,17) was missing from Gen3CableCar.MAPS.
 Fix: Pin all six mids to poleFoot (plain ground) in Gen3EmeraldShapes and add pylon {4,17,15,9}; the model pole stands upright.
+
+### L-96 Lavaridge onsen rim stones were big domes on top, small cobbles at the sides
+Cause: Rim tiles (PINS.lavaridge 'rim', kind=rock) went through Gen3Cave.rockHull, which keeps the largest blob of non-ground pixels (nearly the whole tile) and builds ONE 16 px ellipsoid per tile; the art has two ~8 px stones per tile, and the side wall is the flat art, so tops looked twice as big as the sides.
+Fix: shape.stones=true on the rim: Gen3Cave.stoneMasks splits the tile into its lit grey stone tops (lum>=.49, not water, not sand ground; 4-connected, >=6 px, plus a 1 px shade ring) and hullFor builds a small dome per stone (height 1:1 in voxels, own tones).

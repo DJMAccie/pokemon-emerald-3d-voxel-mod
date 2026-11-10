@@ -42,19 +42,54 @@ function M.positionMask(ts,mid,floor)
  if n>0 then return mask end
 end
 local rockMemo=setmetatable({},{__mode='k'})
-local function rockHull(c,uvFor)
- local rows=c.shape.stoneMask
- local mask
- if rows then
-  mask={}
-  for y=0,15 do for x=0,15 do
-   mask[y*16+x]=math.floor(rows[y+1]/2^x)%2==1
-  end end
- else
-  mask=c.shape.floorTile and M.positionMask(c.ts,c.mid,c.shape.floorTile) or V.require('Gen3Outdoor').mask(c.ts,c.mid,c.shape.ground)
-  if not mask then return end
-  mask=boulderMask(mask)
+-- A tile that draws several small stones (the Lavaridge onsen rim, shape.stones) is one little dome per stone, as in the art.
+local STONE_LUM=.49 -- the stone tops (cream, grey) against their navy shade
+local STONE_TONE=.38 -- darkest colour a dome is painted with
+local STONE_MIN=6 -- fewest lit pixels that make a stone
+local D4={{1,0},{-1,0},{0,1},{0,-1}}
+local function stoneMasks(c)
+ local ts=c.ts
+ local slot=ts.midToSlot[c.mid];local px,py=slot%ts.cols*16,math.floor(slot/ts.cols)*16
+ local lit,solid={}, {}
+ for y=0,15 do for x=0,15 do
+  local r,g,b,a=ts.imageData:getPixel(px+x,py+y)
+  if (a or 1)>.5 and not (b>r+.3) and not (r>b+.2) then -- grey stone and its navy shade: not water, not sand ground
+   solid[y*16+x]=true
+   if .299*r+.587*g+.114*b>=STONE_LUM then lit[y*16+x]=true end
+  end
+ end end
+ local seen,comps={}, {}
+ for k0=0,255 do if lit[k0] and not seen[k0] then
+  local comp,at={}, 1
+  local queue={k0};seen[k0]=true
+  while queue[at] do
+   local k=queue[at];at=at+1;comp[#comp+1]=k
+   local x,y=k%16,math.floor(k/16)
+   for _,d in ipairs(D4)do
+    local nx,ny=x+d[1],y+d[2];local nk=ny*16+nx
+    if nx>=0 and nx<16 and ny>=0 and ny<16 and lit[nk] and not seen[nk] then seen[nk]=true;queue[#queue+1]=nk end
+   end
+  end
+  if #comp>=STONE_MIN then comps[#comps+1]=comp end
+ end end
+ local claimed={}
+ for _,comp in ipairs(comps)do for _,k in ipairs(comp)do claimed[k]=true end end
+ local out={}
+ for _,comp in ipairs(comps)do
+  local own={}
+  for _,k in ipairs(comp)do own[k]=true end
+  for _,k in ipairs(comp)do -- one ring of shade round the lit top
+   local x,y=k%16,math.floor(k/16)
+   for _,d in ipairs(D4)do
+    local nx,ny=x+d[1],y+d[2];local nk=ny*16+nx
+    if nx>=0 and nx<16 and ny>=0 and ny<16 and solid[nk] and not claimed[nk] then claimed[nk]=true;own[nk]=true end
+   end
+  end
+  out[#out+1]=own
  end
+ return out
+end
+local function hullFor(c,uvFor,mask,stone)
  local uv=assert(uvFor(c.ts,c.mid))
  local function tex(x,y)
   return {uv[1][1]+(uv[2][1]-uv[1][1])*x/16,
@@ -99,14 +134,14 @@ local function rockHull(c,uvFor)
      paints[k]={uvx,uvy}
     end
     local lum=.299*r+.587*g+.114*b
-    samples[#samples+1]={k=k,lum=lum}
+    if not stone or lum>=STONE_TONE then samples[#samples+1]={k=k,lum=lum} end
    end
   end
  end end
  if #samples==0 then return end
  table.sort(samples,function(a,b)return a.lum<b.lum end)
  local tones={}
- local startIdx=math.max(1,math.floor(#samples*.35)+1)
+ local startIdx=stone and 1 or math.max(1,math.floor(#samples*.35)+1)
  for i=startIdx,#samples do
   local k=samples[i].k
   if #tones==0 or tones[#tones]~=k then tones[#tones+1]=k end
@@ -192,7 +227,27 @@ local function rockHull(c,uvFor)
    end
   end
  end end
- return {hull=hull,ox=ox,oz=oz,card=false}
+ return {hull=hull,ox=ox,oz=oz,card=false,scale=stone and 1 or nil}
+end
+local function rockHull(c,uvFor)
+ local rows=c.shape.stoneMask
+ local mask
+ if rows then
+  mask={}
+  for y=0,15 do for x=0,15 do
+   mask[y*16+x]=math.floor(rows[y+1]/2^x)%2==1
+  end end
+ else
+  if c.shape.stones then
+   local parts={}
+   for _,m in ipairs(stoneMasks(c))do local p=hullFor(c,uvFor,m,true);if p then parts[#parts+1]=p end end
+   if #parts>0 then return {parts=parts} end
+  end
+  mask=c.shape.floorTile and M.positionMask(c.ts,c.mid,c.shape.floorTile) or V.require('Gen3Outdoor').mask(c.ts,c.mid,c.shape.ground)
+  if not mask then return end
+  mask=boulderMask(mask)
+ end
+ return hullFor(c,uvFor,mask,false)
 end
 function M.rock(c,emit,uvFor)
  local card=V.require('TreePresentation').props:get()=='cards'
@@ -201,16 +256,18 @@ function M.rock(c,emit,uvFor)
  local r=memo[key]
  if r==nil then r=rockHull(c,uvFor) or false;memo[key]=r;memo.n=memo.n+1 end
  if not r then return end
- local hull,ox,oz=r.hull,r.ox,r.oz
- local scale=card and 1 or (c.shape.height or 16)/16
- for _,q in ipairs(hull)do
-  local points={}
-  for _,p in ipairs(q)do
-   points[#points+1]={c.cx*16+ox+p[1],p[2]*scale,c.cy*16+oz+p[3]}
+ for _,pr in ipairs(r.parts or {r})do
+  local hull,ox,oz=pr.hull,pr.ox,pr.oz
+  local scale=card and 1 or pr.scale or (c.shape.height or 16)/16
+  for _,q in ipairs(hull)do
+   local points={}
+   for _,p in ipairs(q)do
+    points[#points+1]={c.cx*16+ox+p[1],p[2]*scale,c.cy*16+oz+p[3]}
+   end
+   local uvs=q.uvs
+   if not uvs then local t={q.u,q.v};uvs={t,t,t,t} end
+   emit(points,uvs,q.shade,card and {c.cx*16+8,c.cy*16+8,.001} or nil)
   end
-  local uvs=q.uvs
-  if not uvs then local t={q.u,q.v};uvs={t,t,t,t} end
-  emit(points,uvs,q.shade,card and {c.cx*16+8,c.cy*16+8,.001} or nil)
  end
 end
 M.UNDERWATER_FILL={[0x213]=true}
