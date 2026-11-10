@@ -247,3 +247,7 @@ Fix: BuildingVoxels.twinPanes: per wall plane, box the lit quads (gap 2, max 24 
 ### L-94 Grass plateau dropped as a bare green wall; Lilycove beach had a 2-course sand spike
 Cause: c.floor.bareDrop is never set since the height maps (52e02fda), so a floor drop used the floor's own top tile; the Lilycove JSON had the ledge corner one cell off ((41,34) E1:2, (42,34) SW)
 Fix: Gen3Scene drop wall: a grass top (Gen3Blocks.grassTop) on a height-map cell dropping 8 px or more takes Gen3Blocks.ledgeFaceUV (nearest rock face); JSON corrected and rebaked with tools/heightmaps.py. Not swept over other maps yet when written.
+
+### L-95 Route 112 cable-car poles lay along the rock slope
+Cause: Only foot tile 0x264 was pinned to plain ground; shaft/head tiles 0x254 0x255 0x25C 0x25D and foot 0x265 (lavaridge) kept their baked pole art draped on cliff cells, and the west pylon (4,17) was missing from Gen3CableCar.MAPS.
+Fix: Pin all six mids to poleFoot (plain ground) in Gen3EmeraldShapes and add pylon {4,17,15,9}; the model pole stands upright.
