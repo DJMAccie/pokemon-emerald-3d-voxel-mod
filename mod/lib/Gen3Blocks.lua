@@ -708,6 +708,10 @@ local function rampWall(emit,uv,shade,ax,az,bx,bz,pA,pB,qA,qB,onlyOut)
   local lo1,lo2=math.min(p1,q1),math.min(p2,q2)
   local hi1,hi2=math.max(p1,q1),math.max(p2,q2)
   local v1,v2=vOf(hi1-lo1),vOf(hi2-lo2)
+  local S=M.SEAM*3;local L=math.sqrt((bx-ax)^2+(bz-az)^2);local ex,ez=(bx-ax)/L,(bz-az)/L -- overlap the neighbours: the wall reaches SEAM past its true ends, under its foot and over its lid
+  if x1==ax and z1==az then x1,z1=x1-ex*S,z1-ez*S end
+  if x2==bx and z2==bz then x2,z2=x2+ex*S,z2+ez*S end
+  lo1,lo2,hi1,hi2=lo1-S,lo2-S,hi1+S,hi2+S
   if out then emit({{x1,lo1,z1},{x2,lo2,z2},{x2,hi2,z2},{x1,hi1,z1}},{{u1,vb},{u2,vb},{u2,v2},{u1,v1}},shade)
   else emit({{x2,lo2,z2},{x1,lo1,z1},{x1,hi1,z1},{x2,hi2,z2}},{{u2,vb},{u1,vb},{u1,v1},{u2,v2}},shade) end
  end
