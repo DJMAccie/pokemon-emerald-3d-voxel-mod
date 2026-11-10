@@ -312,7 +312,6 @@ function Importer.beginFrom(bytes, label, options)
     end
   end
 
-  if nativePickPending then clearNativePicker(false) end
   local normalized, metaOrErr = Rom.validate(bytes)
   if not normalized then return fail("validating ROM", metaOrErr) end
   Importer.releaseModels()

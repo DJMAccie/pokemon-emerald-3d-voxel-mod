@@ -30,6 +30,11 @@ if [ "${1:-}" = "--check" ]; then
   done
   exit $bad
 fi
+# Geen installatie met rode tests of lint (2 s). EM_SKIP_TESTS=1 slaat dit over.
+if [ -z "${EM_SKIP_TESTS:-}" ] && [ -d "$E/gen1recomp" ]; then
+  out=$(cd "$E/mod" && tools/run_tests.sh "$E/gen1recomp" 2>&1) || {
+    printf '%s\n' "$out" | grep -Ev '^PASS'; echo "Tests rood: niet geinstalleerd (cd mod && tools/run_tests.sh ../gen1recomp)."; exit 1; }
+fi
 if pgrep -f "MacOS/love" >/dev/null; then echo "Het spel (of een testrun) draait: sluit het eerst."; exit 1; fi
 for t in "${TARGETS[@]}"; do
   mkdir -p "$t/mods/$ID"

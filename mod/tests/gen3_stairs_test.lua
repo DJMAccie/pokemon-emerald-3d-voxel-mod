@@ -23,7 +23,10 @@ end end
 for mid,kind in pairs({[0x211]='up',[0x214]='down'})do
  local c={cx=0,cy=0,pair='building__brendans_mays_house',mid=mid,ts={}}
  assert(S.wallKind(c)==kind)
- local n=0;assert(S.appendWall(c,function()n=n+1 end,uv));assert(n>10)
+ local n=0;assert(S.appendWall(c,function()n=n+1 end,uv));assert(kind=='up' and n>10 or kind=='down' and n==1,'house doorway: up is modelled, down is one wall-art quad')
  c.collision=7;assert(not S.wallKind(c),'a blocked doorway is no stair')
+end
+for mid,kind in pairs({[0x20B]='up',[0x219]='down'})do
+ local n=0;assert(S.appendWall({cx=0,cy=0,pair='building__generic_building',mid=mid,ts={}},function()n=n+1 end,uv));assert(n>10,kind..' doorway is modelled')
 end
 print('PASS native staircase assemblies '..counts.up..' up / '..counts.down..' down, wall doorways, whole-pattern guards and ladders')

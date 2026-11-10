@@ -1,6 +1,5 @@
 -- Classic Emerald healthboxes, nudged to sit right under the 3D battle models;
 -- the battle textbox loses its panel and keeps only white text
-local V=...
 local M={drawing=false}
 local OFFSET_FOE={x=-11,y=-13}
 local OFFSET_PLAYER={x=10,y=2}

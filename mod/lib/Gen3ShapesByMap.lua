@@ -158,9 +158,6 @@ do
  for m=0x3D8,0x3F2 do if (m%8<=2 and m>=0x3D8) or (m>=0x3DB and m<=0x3DD) or (m>=0x3E3 and m<=0x3E5) then M[m]={kind='lathe',lathe=T,ground=0x251,reviewedSurface=true,noFurniture=true} end end
  shapes.EM_ROUTE111=M
 end
-local RAIL_EDGE={[0x316]=true,[0x31E]=true,[0x321]=true,[0x315]=true,[0x320]=true,[0x322]=true}
-local RAIL_POSTS={[0x315]=true,[0x316]=true,[0x31E]=true}
-local RAIL_ROCK={[0x312]=true,[0x314]=true}
 do
  local top={kind='rail',top=true,noFurniture=true}
  local foot={kind='rail',noFurniture=true}

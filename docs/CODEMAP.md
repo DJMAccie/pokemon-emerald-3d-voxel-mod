@@ -8,20 +8,20 @@ functions (`name@line`). Data tables are in `mod/data/` (generated; never read t
 - `BoundaryScenery` 46: Pure boundary selection
 - `Gen3Boundary` 127: Render the native Emerald perimeter in map-local coordinates.
 - `Gen3CamClear` 77: Gen3CamClear
-- `Gen3Elevation` 587: Physical support from native stair topology and reviewed source surfaces
-  - daisAt@51 daisPrepare@55 daisSettle@66 field@85 [inside field, first calls: Pairs.resolve@92 Levels.build@301] cell@393 at@396 supportFill@397 bind@437 lift@578 invalidate@585
-- `Gen3EmeraldInteriors` 239: Emerald interior profiles, keyed by the pret tileset the importer named the pair after
+- `Gen3Elevation` 601: Physical support from native stair topology and reviewed source surfaces
+  - daisAt@51 daisPrepare@55 daisSettle@66 field@85 [inside field, first calls: Pairs.resolve@92 Levels.build@315] cell@407 at@410 supportFill@411 bind@451 lift@592 invalidate@599
+- `Gen3EmeraldInteriors` 240: Emerald interior profiles, keyed by the pret tileset the importer named the pair after
 - `Gen3EmeraldShapes` 426: Emerald metatile recipes for the Gen 3 scene
 - `Gen3Integration` 227: FireRed's native display bypasses Pipelines
 - `Gen3Outdoor` 742: Reviewed General outdoor metatiles
   - registerPlant@10 sub@18 pixel@22 colorKey@29 mask@30 solidPlant@51 plant@109 groupAwnings@209 groundProps@232 isGreen@273 profile@277 sideProfile@314 sideLedge@338 ownsFaces@397 ledgeFloor@405 ledge@424 hsh@504 tuftInfo@505 blades@553 tufts@568 append@599 image@718 release@738
 - `Gen3PinData` 45: 
 - `Gen3Recap` 63: Render recorded Quest Log scenery through the selected camera without moving the live player,
-- `Gen3Scene` 2589: Native FireRed art in the depth/shadow renderer
-  - isDeck@49 context@56 quad@60 uvFor@87 plane@101 flightAxis@106 flightTreads@125 swatch@177 wallColumn@183 nativeEffects@211 nativeRequired@215 releaseGeometry@230 tileIdentity@253 tilesetsReady@271 walkGate@295 directNeighbours@298 debugRegions@304 tourBounds@310 request@318 shiftedLathe@365 firstArea@383 build@384 [inside build, first calls: Budget.tick@400 Pairs.resolve@420 Tiles.get@458 SceneCache.key@462 Reef.join@465 BuildingModels.prepare@503 Elevation.daisPrepare@506 Decks.prepare@507 Stairs.flatten@510 Furniture.extract@511 Shapes.layout@519 Interior.fitWall@520 Interior.paintWall@521 Interior.forMap@523 Outdoor.groundProps@535 Elevation.bind@541 Elevation.daisSettle@638 Decks.settle@639 Mass.append@775 Stairs.append@829 Lamp.is@836 Stairs.appendWall@841 Fence.append@1070 Gate.append@1104 Reef.append@1118 Mass.ground@1127 Terrain.append@1227 VoxelBuildings.append@1446 Roof.sideVisible@1544 Elevation.lift@1659 Furniture.append@1801 BuildingModels.mesh@1820 Budget.check@1824 CamClear.addQuads@1837] aheadRequest@1894 aheadHooks@1935 warmAhead@1946 prepare@1983 panesOf@2038 ink@2043 eyeUnderCrown@2056 terrain@2067 waterMeshes@2106 rideDust@2116 fastMesh@2143 cardMesh@2151 actor@2191 debugRaw@2249 builtBounds@2250 readyFor@2251 groundAt@2252 deckCut@2265 actors@2288 fieldEffects@2346 restore@2407 presentField@2418 draw@2425 invalidate@2572 release@2573
+- `Gen3Scene` 2592: Native FireRed art in the depth/shadow renderer
+  - isDeck@49 context@56 quad@60 uvFor@87 plane@101 flightAxis@106 flightTreads@125 swatch@177 wallColumn@183 nativeEffects@211 nativeRequired@215 releaseGeometry@230 tileIdentity@253 tilesetsReady@271 walkGate@295 directNeighbours@298 debugRegions@304 tourBounds@310 request@318 shiftedLathe@365 firstArea@383 build@384 [inside build, first calls: Budget.tick@400 Pairs.resolve@420 Tiles.get@458 SceneCache.key@462 Reef.join@465 BuildingModels.prepare@503 Elevation.daisPrepare@506 Decks.prepare@507 Stairs.flatten@510 Furniture.extract@511 Shapes.layout@519 Interior.fitWall@520 Interior.paintWall@521 Interior.forMap@523 Outdoor.groundProps@535 Elevation.bind@541 Elevation.daisSettle@638 Decks.settle@639 Mass.append@775 Stairs.append@829 Lamp.is@836 Stairs.appendWall@841 Fence.append@1070 Gate.append@1104 Reef.append@1118 Mass.ground@1127 Terrain.append@1227 VoxelBuildings.append@1446 Roof.sideVisible@1544 Elevation.lift@1659 Furniture.append@1804 BuildingModels.mesh@1823 Budget.check@1827 CamClear.addQuads@1840] aheadRequest@1897 aheadHooks@1938 warmAhead@1949 prepare@1986 panesOf@2041 ink@2046 eyeUnderCrown@2059 terrain@2070 waterMeshes@2109 rideDust@2119 fastMesh@2146 cardMesh@2154 actor@2194 debugRaw@2252 builtBounds@2253 readyFor@2254 groundAt@2255 deckCut@2268 actors@2291 fieldEffects@2349 restore@2410 presentField@2421 draw@2428 invalidate@2575 release@2576
 - `Gen3SceneCache` 24: Native layouts are immutable base cells plus sparse public overrides
 - `Gen3SceneOptions` 81: Shared presentation consumers for Game3
-- `Gen3ShapesByMap` 274: Every per-map metatile recipe: what a map's own tiles are built as. (Gen3Scene's SHAPE_BY_MAP block, moved out
+- `Gen3ShapesByMap` 271: Every per-map metatile recipe: what a map's own tiles are built as. (Gen3Scene's SHAPE_BY_MAP block, moved out
 - `Gen3TileShape` 250: Emerald's native metatiles, scoped to their PRIMARY/SECONDARY tileset pair
 - `Gen3Tilesets` 27: The importer adds generated pairs to Versions only while importing a ROM
 - `RenderDistance` 39: A conservative world-space draw/build budget for the voxel neighborhood
@@ -30,8 +30,8 @@ functions (`name@line`). Data tables are in `mod/data/` (generated; never read t
 - `TerrainLevels` 399: Presentation-only floor topology
 ### Terrain, rock, water edges
 - `Gen3AshPine` 127: Mt
-- `Gen3Blocks` 856: Gen3Blocks
-  - key@14 pinned@19 rockPatch@27 prepare@35 set@78 isStone@83 looseStones@87 roundEnd@126 arrowRamps@142 restoreHeights@201 buildRamps@205 liftSpots@324 lowerArches@347 buildSlopes@356 floorOf@405 besideHeight@406 lumOf@416 massStats@427 faceLike@444 faceMid@453 ledgeFaceUV@488 topLike@518 lidUV@524 insetAt@553 face@560 rampWall@594 stairFlight@619 stairSide@639 appendRamp@662 waterCols@709 cropWater@733 append@741
+- `Gen3Blocks` 868: Gen3Blocks
+  - key@14 pinned@19 rockPatch@27 prepare@35 set@78 isStone@83 looseStones@87 roundEnd@126 arrowRamps@142 restoreHeights@201 buildRamps@205 liftSpots@324 lowerArches@347 buildSlopes@356 floorOf@405 besideHeight@406 lumOf@416 massStats@427 faceLike@444 faceMid@453 grassTop@487 ledgeFaceUV@500 topLike@530 lidUV@536 insetAt@565 face@572 rampWall@606 stairFlight@631 stairSide@651 appendRamp@674 waterCols@721 cropWater@745 append@753
 - `Gen3Cave` 292: Cave masses and boulders use their native palette and silhouette
 - `Gen3Decks` 379: Stepped decks the cartridge rates flat
 - `Gen3Hills` 559: Sand hills
@@ -52,10 +52,10 @@ functions (`name@line`). Data tables are in `mod/data/` (generated; never read t
 - `WorldUnderlay` 92: One cheap, curved floor beneath the loaded voxel neighborhood
 ### Buildings and interiors
 - `BuildingDome` 69: Round roofs for the flat-topped battle tent models: the 1px column model gets a domed top (quarter-circle rise
-- `BuildingModels` 831: BuildingModels
+- `BuildingModels` 834: BuildingModels
   - claim@566 prepare@584 compose@703 mesh@755
 - `BuildingRoof` 50: 
-- `BuildingVoxels` 284: BuildingVoxels
+- `BuildingVoxels` 391: BuildingVoxels
 - `Gen3Furniture` 203: Whole-object recipes for Emerald's Building primary art
 - `Gen3LeagueGate` 70: Ever Grande's two gates on the way up to the Pokemon League, built as real gates you walk through
 - `Gen3Market` 56: Slateport's merchandise: round baskets, with the original rim and contents on top.
@@ -105,7 +105,7 @@ functions (`name@line`). Data tables are in `mod/data/` (generated; never read t
 - `BattleSpecies` 26: Species name and shininess of a battler, for the Stadium models
 - `Gen3Battle` 339: Presentation seam for the native FRLG battle engine
 - `Gen3BattleClear` 24: Whole-object visibility for a battle clearing and its camera corridor
-- `Gen3BattleHud` 45: Classic Emerald healthboxes, nudged to sit right under the 3D battle models; the battle textbox loses its pane
+- `Gen3BattleHud` 44: Classic Emerald healthboxes, nudged to sit right under the 3D battle models; the battle textbox loses its pane
 - `Gen3BattleStage` 151: Where the 3D battle stands
 - `Gen3StadiumModels` 247: Stadium 2 models inside native Gen 3 battles
 - `ModelInstances` 37: Reuse one immutable model on the GPU
@@ -120,7 +120,7 @@ functions (`name@line`). Data tables are in `mod/data/` (generated; never read t
   - cullAt@11 cullShape@16 cullRect@21 update@29 configFor@37 say@58 invalidate@67 setOverride@79 frame@99 bxor32@139 newRng@152 Rng:next@158 Rng:unit@167 lattice@171 smoothstep01@181 torus@185 leafTexture@197 layout@232 layoutFor@258 rayShaderFor@407 rayQuad@430 partShader@534 pushQuad@553 buildPartMesh@563 meshesFor@581 billboardAxes@595 draw@609
 - `Gen3SpriteAnchor` 59: Ground visible feet in each frame
 - `Gen3SpriteLight` 40: Native actors stay on the UI plane
-- `GlassMask` 327: Voxel world mode
+- `GlassMask` 352: Voxel world mode
 - `Mat4` 138: Minimal 4x4 matrix math for voxel world mode
 - `NativeAtmosphere` 70: Native maps feed the shared depth-aware atmosphere without changing engine map tables
 - `SceneryMask` 24: Background-connected alpha masks for native 2.5D scenery drawings
@@ -130,7 +130,7 @@ functions (`name@line`). Data tables are in `mod/data/` (generated; never read t
 - `TiltShift` 124: Voxel world mode
 - `Voxel3D` 1314: Voxel world mode
   - newDepth@511 depthTarget@526 releaseSlot@533 shader@543 unlitShader@551 backdropShader@587 metalRenderer@596 available@615 newMesh@623 finiteDelta@663 normalize3@671 cross3@678 rotateAxis@682 cameraWithDelta@692 setLook@732 viewProjection@744 horizonY@809 skyBody@833 beginScene@852 depth@1006 flatten@1015 beginWater@1029 beginCast@1065 endCast@1083 endWater@1090 depthReadable@1098 blend@1102 withEffect@1114 glassMaskNow@1144 glass@1151 draw@1161 battleOcclusion@1184 dayTint@1189 lighting@1195 coverRect@1221 backdropTransform@1230 backdrop@1235 project@1261 interiorClip@1274 endScene@1278 canvas@1291 size@1295 invalidate@1299
-- `VoxelState` 90: Voxel world mode
+- `VoxelState` 42: Voxel world mode
 ### Other
 - `CommunityVisuals` 21: Native-map checks and cache invalidation shared by the atmosphere modules
 - `Gen3DryDock` 146: Slateport's dry-dock boat: the 3x2 metatiles beside the shipyard stood up as a hull on two props
@@ -158,7 +158,7 @@ functions (`name@line`). Data tables are in `mod/data/` (generated; never read t
   - setBase@26 roundHalfEven@44 roundTo@53 signed@71 unique@79 Frag:u8@95 Frag:s8@99 Frag:u16@105 Frag:s16@110 Frag:u32@117 Frag:s32@122 Frag:off@128 Frag:ptr@133 Frag:root@137 Frag:ptrList@152 open@163 newModel@176 Model:readTextureTable@223 Model:readTlutTable@235 Model:curBone@259 Model:build@265 Model:prescanBones@290 Model:walk@318 Model:nodeCallbackState@511 modelCombiner@542 Model:setRdpState@555 Model:applyNodeMaterial@572 Model:resetNodeMaterial@590 Model:runNodeDL@597 Model:primFor@624 band@684 bor@693 emit@702 Model:runDL@725 Model:tilePalette@825 decodeTileSampler@842 Model:tileSampler@856 Model:bakePhase5Geometry@876 Model:mergePrimitivesByCallback@931 bitfield@969 newAnim@991 Anim:chan@1006 Anim:transPacked@1014 Anim:rotPacked@1026 Anim:scalePacked@1033 Anim:hermite@1040 Anim:transKey@1069 Anim:rotKey@1075 Anim:scaleKey@1087 Anim:sampleTrs@1102 newAux@1134 Aux:sample@1148 Aux:track@1163 rgba5551@1170 decodeTexture@1177 compress@1263 dedupeFx@1275 stitchPolitoedTorsoBoundary@1307 rdpColor@1339 rdpMaterial@1348 extract@1365 crystal251Inside@1751 crystal251LooksLikeAnim@1756 crystal251RawAnimationOffsets@1809 crystal251DecodeOne@1832 crystal251DecodeOffsets@1879 crystal251DecodeModelAnimations@1895 inspect@1921 inspectAny@1937 extractAnimations@1966 extractAnimationsAny@1980 RawFrag:off@2001 RawFrag:ptr@2009 crystal251HexPrefix@2013 crystal251RawModes@2021 crystal251RawU32@2063 crystal251RawCandidates@2069 inspectRawAnimations@2111 extractRawAnimations@2136
 - `fx` 133: 
 - `handler_registry` 105: Fragment 26 callback catalogue.  Keep this file declarative: extraction, cache codecs, runtime simulation and 
-- `importer` 493: 
+- `importer` 492: 
 - `layout` 38: 
 - `materials` 270: 
 - `mod_lifecycle` 97: Older hosts do not expose a mod-unload callback. Observe their real teardown boundaries with reversible patche
@@ -185,8 +185,8 @@ functions (`name@line`). Data tables are in `mod/data/` (generated; never read t
 - `flyers` 146: Ambient flyers: a few peaceful birds crossing the sky over routes and towns. Plain billboard rows (not in
 - `followers` 125: Followers trace cells really traversed by the native player. Replacing the player's graphics leaves scripts, c
 - `identity` 59: Visible spawns keep one host-selected identity through drawing, battle and capture. No protocol extension or c
-- `init` 408: Native FireRed adapter. Rules use the same public settings as Gen1/Gen2; all map movement and battle/capture b
-- `presentation` 82: Native nine-frame art and presentation variants. Variants are baked sheets, so every renderer consuming OwSpri
+- `init` 410: Native FireRed adapter. Rules use the same public settings as Gen1/Gen2; all map movement and battle/capture b
+- `presentation` 90: Native nine-frame art and presentation variants. Variants are baked sheets, so every renderer consuming OwSpri
 - `rules` 23: Pure option semantics shared by local and remote native simulation.
 - `settings` 25: All generations publish the same keys. Only the Gen3 overworld art default changes; the battle scene is never 
 - `InGameOptions` 82: Native options adapters. Each mod ships its own copy and supplies only its own public schema; no other mod or 

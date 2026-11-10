@@ -1,4 +1,5 @@
 -- Emerald interior profiles, keyed by the pret tileset the importer named the pair after
+local V=...
 local M={}
 local function profile(key,floor,walls,props,primary)
  local p={floor=floor,walls={},props=props or {},primary=primary}

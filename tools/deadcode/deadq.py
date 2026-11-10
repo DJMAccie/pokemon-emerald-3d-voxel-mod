@@ -176,4 +176,5 @@ for f in cand:
 print('escaped modules:',' '.join(sorted(m for m in escaped if m in export)))
 print('rounds',rounds,'dead functions',len(out),'lines~',sum(b-a+1 for *_,a,b in out))
 for o in sorted(out): print('  %-28s %-6s %-40s %d-%d'%o)
+os.makedirs('/tmp/deadscan',exist_ok=True)
 json.dump(out,open('/tmp/deadscan/deadq.json','w'),indent=0)

@@ -115,4 +115,5 @@ print('rounds',rounds,'dead functions',len(out),'lines~',tot)
 by=collections.Counter()
 for o in out: by[o[0]]+=o[4]-o[3]+1
 for k,v in by.most_common(40): print('  %-32s %5d'%(k,v))
+os.makedirs('/tmp/deadscan',exist_ok=True)
 json.dump(out,open('/tmp/deadscan/dead.json','w'),indent=0)
