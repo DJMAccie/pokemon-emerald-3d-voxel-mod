@@ -279,5 +279,5 @@ Rules: R-23
 
 ### L-101 Pokemon Center roof: slotted hump on top read as sliced slabs
 Cause: The baked model (data/buildings/pokemon_center.lua) extruded the roof art's skyline into a hump h37..44 over x17..46 with six 1 px slots down to h37 at the art's dark lines; from a low camera the slots' tan side faces looked like loose slices (Petya: 'sliced ridges').
-Fix: tools/buildings/center_roof.py drops the hump: the middle is level with the roof plane (h36) and takes the art row per z from the flat roof beside it (column 15). All Centers share this model; the Mart has no hump.
+Fix: tools/buildings/center_roof.py closes the slots only: a slot column rises to its lower neighbour, the faces inside the slot go, front/back faces get py=59-h. The hump stays (Petya 2026-11-10: 'the hump should stay, it should be solid'); a first try that flattened the roof was wrong. All Centers share this model; the Mart has no hump.
 Rules: R-09
