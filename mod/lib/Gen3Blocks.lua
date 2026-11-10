@@ -539,7 +539,7 @@ local function impure(ts,mid)
  return v
 end
 M.PURE=.03
-local function grey(ts,mid) -- share of a tile that is neutral grey (the shadow drawn at a rock's foot)
+local function grey(ts,mid) -- share of a tile that is not warm rock (the grey shadow drawn at a rock's foot)
  ts.blocksGrey=ts.blocksGrey or {}
  local v=ts.blocksGrey[mid]
  if v then return v end
@@ -548,7 +548,7 @@ local function grey(ts,mid) -- share of a tile that is neutral grey (the shadow 
  if slot then
   local gx,gy=slot%ts.cols*16,math.floor(slot/ts.cols)*16;local n=0
   for y=0,15 do for x=0,15 do
-   local r,g,b=ts.imageData:getPixel(gx+x,gy+y);if math.max(r,g,b)-math.min(r,g,b)<.06 then n=n+1 end
+   local r,g,b=ts.imageData:getPixel(gx+x,gy+y);if b>=r-.03 then n=n+1 end -- rock is warm (red over blue); the shadow is grey or bluish
   end end
   v=n/256
  end
@@ -814,6 +814,22 @@ local function appendRamp(c,cells,emit,uvFor)
  if par then Parapet.append(c,cells,emit,uvFor,c.base or r[1]) end
  return true
 end
+-- A doorway tile has a dark opening at its foot; a rock tile with a grey foot shadow there is no door.
+local function darkHole(ts,mid)
+ ts.blocksHole=ts.blocksHole or {}
+ local v=ts.blocksHole[mid]
+ if v==nil then
+  v=false
+  local slot=ts.imageData and ts.midToSlot and ts.midToSlot[mid]
+  if slot then
+   local gx,gy,l=slot%ts.cols*16,math.floor(slot/ts.cols)*16,0
+   for y=12,14 do for x=7,8 do local r,g,b=ts.imageData:getPixel(gx+x,gy+y);l=l+.3*r+.59*g+.11*b end end
+   v=l/6<.25
+  end
+  ts.blocksHole[mid]=v
+ end
+ return v
+end
 function M.append(c,cells,emit,uvFor)
  if c.ramp then return appendRamp(c,cells,emit,uvFor) end
  local T=c.base or 0
@@ -847,7 +863,7 @@ function M.append(c,cells,emit,uvFor)
  end
  -- A doorway is two tiles: the arch (this face tile, at the foot of a higher wall) and the floor in front of it.
  -- The arch stands once in the wall, one course high; above it plain rock, the floor inside it dark.
- local function doorAt(q,qn)return faceMid(q,cells)==q.mid and qn[4] and qn[3] and not qn[3].blocks and (besideHeight(qn[4]) or (q.base or 0))>(q.base or 0)+15.75 end
+ local function doorAt(q,qn)return faceMid(q,cells)==q.mid and darkHole(q.ts,q.mid) and qn[4] and qn[3] and not qn[3].blocks and (besideHeight(qn[4]) or (q.base or 0))>(q.base or 0)+15.75 end
  local door=doorAt(c,nb)
  if door then
   -- the floor inside the opening is the arch's own dark (a patch from the middle of its hole)
