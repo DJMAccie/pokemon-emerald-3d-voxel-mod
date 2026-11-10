@@ -18,8 +18,8 @@ end
 -- The export only holds the facade rows; the roof rows above it stay map tiles lying on the ground.
 -- rows = extra tile rows above the model (their art becomes the roof on top of the box, no stretch),
 -- n = copies of the side walls behind the front slice (back wall ends at the top row), top = height of the roof plane;
--- the roof art repeats over the whole top.
-M.DEEPEN={b055_lilycovecity_harbor={rows=3,n=5,top=32}}
+-- eave = rows of the facade's top tile that lie on the roof's front edge; behind it the roof art repeats, without its scalloped back row.
+M.DEEPEN={b055_lilycovecity_harbor={rows=3,n=5,top=32,eave=8}}
 -- Taller than the export: repeat the wall band hB..hA n more times and lift everything above it (gym roofs).
 local GYM_RAISE={hB=27,hA=29,n=1}
 M.RAISE={b003_petalburgcity_gym=GYM_RAISE,b017_mauvillecity_gym=GYM_RAISE,b024_rustborocity_gym=GYM_RAISE,
@@ -71,7 +71,11 @@ local function deepen(m,d)
   end
  end
  local zr=back0*(d.n+1)
- for z=zr,-1 do for x=0,wpx-1 do put(3,x,x+1,d.top,d.top,z,z+1,x,(z-zr)%sh,0) end end
+ local e=d.eave or 0
+ for z=zr,-1 do
+  local py=z>=-e and sh+e+z or sh-1-(-e-1-z)%(sh-16)
+  for x=0,wpx-1 do put(3,x,x+1,d.top,d.top,z,z+1,x,py,0) end
+ end
  return out
 end
 
@@ -83,7 +87,12 @@ local function model(name)
   local ok,m=pcall(V.data,'buildings/'..name)
   loaded[name]=ok and type(m)=='table' and m or false
   local d=loaded[name] and M.DEEPEN[name]
-  if d then m.quads=deepen(m,d);m.y0=m.y0-d.rows end
+  if d then
+   m.quads=deepen(m,d);m.y0=m.y0-d.rows
+   local t,w={},m.x1-m.x0+1
+   for i,v in ipairs(m.tiles or {})do t[i+d.rows*w]=v end -- the added roof rows take the map's own tiles
+   m.tiles=m.tiles and t
+  end
   if loaded[name] then m.quads=V.require('BuildingRoof').build(m) end
  end
  return loaded[name] or nil

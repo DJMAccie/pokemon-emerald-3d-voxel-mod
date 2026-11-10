@@ -30,8 +30,8 @@ functions (`name@line`). Data tables are in `mod/data/` (generated; never read t
 - `TerrainLevels` 399: Presentation-only floor topology
 ### Terrain, rock, water edges
 - `Gen3AshPine` 127: Mt
-- `Gen3Blocks` 929: Gen3Blocks
-  - key@14 pinned@19 rockPatch@27 prepare@35 set@78 isStone@83 looseStones@87 roundEnd@126 arrowRamps@142 restoreHeights@201 buildRamps@205 liftSpots@324 lowerArches@347 buildSlopes@356 floorOf@405 besideHeight@406 lumOf@416 massStats@427 faceLike@444 faceMid@453 grassTop@487 notRock@503 edgeCrop@506 impure@536 cropWater@554 ledgeFaceUV@565 topLike@598 wet@604 lidUV@621 lidUV0@626 insetAt@656 face@663 rampWall@697 stairFlight@722 stairSide@742 appendRamp@765 append@812
+- `Gen3Blocks` 917: Gen3Blocks
+  - key@14 pinned@19 prepare@24 set@66 isStone@71 looseStones@75 roundEnd@114 arrowRamps@130 restoreHeights@189 buildRamps@193 liftSpots@312 lowerArches@335 buildSlopes@344 floorOf@393 besideHeight@394 lumOf@404 massStats@415 faceLike@432 faceMid@441 grassTop@475 notRock@491 edgeCrop@494 impure@524 cropWater@542 ledgeFaceUV@553 topLike@586 wet@592 lidUV@609 lidUV0@614 insetAt@644 face@651 rampWall@685 stairFlight@710 stairSide@730 appendRamp@753 append@800
 - `Gen3Cave` 349: Cave masses and boulders use their native palette and silhouette
 - `Gen3Decks` 379: Stepped decks the cartridge rates flat
 - `Gen3Hills` 559: Sand hills
@@ -55,7 +55,7 @@ functions (`name@line`). Data tables are in `mod/data/` (generated; never read t
 - `BuildingModels` 834: BuildingModels
   - claim@566 prepare@584 compose@703 mesh@755
 - `BuildingRoof` 50: 
-- `BuildingVoxels` 391: BuildingVoxels
+- `BuildingVoxels` 400: BuildingVoxels
 - `Gen3Furniture` 203: Whole-object recipes for Emerald's Building primary art
 - `Gen3LeagueGate` 70: Ever Grande's two gates on the way up to the Pokemon League, built as real gates you walk through
 - `Gen3Market` 56: Slateport's merchandise: round baskets, with the original rim and contents on top.

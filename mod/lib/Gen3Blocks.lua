@@ -21,21 +21,9 @@ function M.pinned(def)
  return M.enabled and E.BLOCKS_ON and E.PINS_ON and def and def.id and not E.PIN_SKIP[def.id] and PinData and PinData.MAPS[def.id] and true or false
 end
 
--- Petya 2026-11-03: Lilycove's south peninsula edge is all rock (no raised water block, no grass wall): these cells take
--- the rock tile of the rim beside them, keeping their height.
-M.ROCK_PATCH={EM_LILYCOVE_CITY={from={18,33},cells={{16,32},{17,32},{18,32},{14,33},{15,33},{16,33},{17,33},{14,34},{15,34},{16,34},{17,34},{14,35},{15,35},{16,35},{17,35}}}}
-function M.rockPatch(cells,def)
- local p=def and def.id and M.ROCK_PATCH[def.id];if not p then return end
- local src=cells[key(p.from[1],p.from[2])]
- if not (src and src.shape and src.ts) then return end
- for _,q in ipairs(p.cells)do local c=cells[key(q[1],q[2])]
-  if c then c.mid,c.ts,c.shape=src.mid,src.ts,src.shape end
- end
-end
 function M.prepare(cells,regions,def)
  M.count=0
  local on=M.pinned(def)
- M.rockPatch(cells,def)
  for _,c in pairs(cells)do c.blocks=nil end
  if not on then return 0 end
  M.looseStones(cells)

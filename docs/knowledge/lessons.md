@@ -255,3 +255,13 @@ Fix: Pin all six mids to poleFoot (plain ground) in Gen3EmeraldShapes and add py
 ### L-96 Lavaridge onsen rim stones were big domes on top, small cobbles at the sides
 Cause: Rim tiles (PINS.lavaridge 'rim', kind=rock) went through Gen3Cave.rockHull, which keeps the largest blob of non-ground pixels (nearly the whole tile) and builds ONE 16 px ellipsoid per tile; the art has two ~8 px stones per tile, and the side wall is the flat art, so tops looked twice as big as the sides.
 Fix: shape.stones=true on the rim: Gen3Cave.stoneMasks splits the tile into its lit grey stone tops (lum>=.49, neutral grey only: grass, water and sand ground in the tile's transparent edge are not stones, they made teal bumps beside the Pokemon Center; 4-connected, >=6 px, plus a 1 px shade ring) and hullFor builds a small dome per stone (height 1:1 in voxels, own tones).
+
+### L-97 Bevelled building corners: the drawing's corner panel is oblique, straighten it per column
+Cause: Pokemon Center and Mart art draws the two front corner panels (columns 0-7, 56-63) obliquely: every line climbs 1 px per column outward. The model has real 45-degree stepped corners but painted each corner column with py=63-h clamped at the panel's base, so only the base moved and all lines ran diagonally (seen from the side, not from the front).
+Fix: tools/buildings/deskew_corners.py: corner column c (0 outer, 7 at the front wall) takes py=56+c-h for h<25. The original generators (tools/buildings/centermart.py, hf.py) are gone: edit the baked quads (f,x0,x1,h0,h1,z0,z1,px,py,shade) with a script. Same fault, not fixed yet: the porch bevels of the 8 gyms and the corners of the Lilycove contest hall. install.sh takes the whole tree: with another session's unfinished lib file in the tree, copy only your own files to both game folders.
+Rules: R-09
+
+### L-98 Lilycove harbor: facade art on the roof, rock mound beside it
+Cause: BuildingVoxels.DEEPEN moved the model's y0 up 3 rows but m.tiles (indexed from the box's first row, BuildingModels compose) still started at row 0, so the roof rows were painted with the facade tiles. Gen3Blocks.ROCK_PATCH (a pin-era hack, 2026-11-03) repainted 15 grass cells east and south of the harbor as ramp rock, which the height-map builder then raised as wedges 1-2 courses above the grass.
+Fix: deepen shifts m.tiles down by its rows; the roof repeats the corrugated rows without the scalloped back row and lays the red eave (top 8 px of the facade's first tile row, DEEPEN eave=8) on the front edge; top must stay 32 (the export has no wall above it). ROCK_PATCH and rockPatch deleted: the height map already has grass 1 and 0:1 ramps there.
+Rules: R-43,R-46
