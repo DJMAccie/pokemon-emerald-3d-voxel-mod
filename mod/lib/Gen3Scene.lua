@@ -768,6 +768,7 @@ local function build(req,cache,previous)
   local b=batches[c.pair]
   if not b then b={pair=c.nativePair,secondary=c.secondary,v={},i={},rv={},ri={},pv={},pi={},wv={},wi={},roofMids={},skipOver={},underSkip={},deckV={},cv={},ci={}};batches[c.pair]=b end
   local uv=V.require('Gen3Parapet').floorUV(c,uvFor) or uvFor(ts,c.mid)
+  if not c.blocks and V.require('Gen3Blocks').DOOR_BEHAVIOR[c.behavior or -1] and uv then local u=uv;local function at(a,b)local function m(j)return u[1][j]*(1-a)*(1-b)+u[2][j]*a*(1-b)+u[3][j]*a*b+u[4][j]*(1-a)*b end;return {m(1),m(2)} end;uv={at(.3,.3),at(.7,.3),at(.7,.7),at(.3,.7)} end -- a cave threshold: the dark middle of its tile, not the grey step and pale foot row
   local ledgeUV=c.floor and (c.floor.ledge or c.floor.bareDrop) and not c.boundary and V.require('Gen3Blocks').ledgeFaceUV(c,cells,uvFor) or nil
   if ledgeUV and c.floor.ledge then uv=ledgeUV end
   local column=c.column
