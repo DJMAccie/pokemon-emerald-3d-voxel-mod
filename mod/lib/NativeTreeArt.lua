@@ -120,6 +120,7 @@ local function slot(w,h)
  return px,py
 end
 M.STACK_AXES=3 -- 1: lying slices only; 3: also standing slices along x and z, so a low camera sees no gaps
+M.STACK_STRIDE=2 -- standing slices every this many voxels (fewer = less overdraw in dense forest)
 local function bake(cells,w,h)
  local px,py=slot(w,h)
  if not px then return end
@@ -167,7 +168,7 @@ function M.stack(vol)
  end end
  for axis=2,3 do
   local count=axis==2 and nx or nz
-  for p=0,count-1 do local L=planes[axis][p];if L then
+  for p=0,count-1 do local L=(p%M.STACK_STRIDE==math.floor(M.STACK_STRIDE/2)) and planes[axis][p];if L then
    Budget.tick()
    for _,c in ipairs(L.cells)do c[1]=c[1]-L.a0;c[2]=c[2]-L.b0 end
    local u0,u1,v0,v1=bake(L.cells,L.a1-L.a0+1,L.b1-L.b0+1)
