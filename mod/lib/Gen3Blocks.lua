@@ -332,10 +332,22 @@ end
 -- A cave door outdoors is two tiles (R-50): the threshold on the floor and the arch behind it, standing in the wall.
 -- The arch tile sits at the threshold's floor so doorAt draws it once, one course high, rock above and dark inside.
 M.DOOR_BEHAVIOR={[0x60]=true,[0x69]=true,[0x6E]=true,[0x6F]=true,[0x8D]=true}
+-- Petya 2026-11-19: 'een tegel opening met daarboven een soort boogje': the doorway cell keeps the wall's height and
+-- shows its own tile (the opening) on its south face from the floor, the tile above it (the arch top) one course
+-- higher, rock above. M.DOOR_RECESS=true brings back the old notch (doorway cell lowered to the threshold).
+M.DOOR_RECESS=false
+local darkHole
 function M.lowerArches(cells)
  for _,c in pairs(cells)do
   local s=c.blocks and c.base and cells[key(c.cx,c.cy+1)]
-  if s and not s.blocks and s.base and M.DOOR_BEHAVIOR[s.behavior or -1] and c.base>s.base and not V.require('Gen3Parapet').keepsHeight(c) then c.base=s.base;if c.heightmapBase then c.heightmapBase=s.base end end
+  if s and not s.blocks and s.base and M.DOOR_BEHAVIOR[s.behavior or -1] and c.base>s.base and not V.require('Gen3Parapet').keepsHeight(c) then
+   if M.DOOR_RECESS then c.base=s.base;if c.heightmapBase then c.heightmapBase=s.base end
+   else c.doorArch=true end
+  elseif s and not M.DOOR_RECESS and not s.blocks and s.base and M.DOOR_BEHAVIOR[s.behavior or -1] and math.abs(c.base-s.base)<.25 and c.ts and c.mid and darkHole(c.ts,c.mid) then
+   -- a doorway drawn at the floor (Route 125): it stands in the wall at the height of the rock behind it
+   local n=cells[key(c.cx,c.cy-1)]
+   if n and n.blocks and n.base and n.base>c.base+15.75 then c.base=n.base;if c.heightmapBase then c.heightmapBase=n.base end;c.doorArch=true end
+  end
  end
 end
 
@@ -819,7 +831,7 @@ local function appendRamp(c,cells,emit,uvFor)
  return true
 end
 -- A doorway tile has a dark opening at its foot; a rock tile with a grey foot shadow there is no door.
-local function darkHole(ts,mid)
+function darkHole(ts,mid)
  ts.blocksHole=ts.blocksHole or {}
  local v=ts.blocksHole[mid]
  if v==nil then
@@ -828,7 +840,9 @@ local function darkHole(ts,mid)
   if slot then
    local gx,gy,l=slot%ts.cols*16,math.floor(slot/ts.cols)*16,0
    for y=12,14 do for x=7,8 do local r,g,b=ts.imageData:getPixel(gx+x,gy+y);l=l+.3*r+.59*g+.11*b end end
-   v=l/6<.25
+   local l2=0 -- an opening whose foot row is a grey shadow line (Route 105/111 mounds) is still dark higher up
+   for y=8,10 do for x=7,8 do local r,g,b=ts.imageData:getPixel(gx+x,gy+y);l2=l2+.3*r+.59*g+.11*b end end
+   v=l/6<.25 or l2/6<.25
   end
   ts.blocksHole[mid]=v
  end
@@ -869,11 +883,15 @@ function M.append(c,cells,emit,uvFor)
  -- The arch stands once in the wall, one course high; above it plain rock, the floor inside it dark.
  local function doorAt(q,qn)return faceMid(q,cells)==q.mid and darkHole(q.ts,q.mid) and qn[4] and qn[3] and not qn[3].blocks and (besideHeight(qn[4]) or (q.base or 0))>(q.base or 0)+15.75 end
  local door=doorAt(c,nb)
- if door then
+ if door and M.DOOR_RECESS then
   -- the floor inside the opening is the arch's own dark (a patch from the middle of its hole)
   local a=uvFor(c.ts,c.mid)
   local function at(u,v)local function m(j)return a[1][j]*(1-u)*(1-v)+a[2][j]*u*(1-v)+a[3][j]*u*v+a[4][j]*(1-u)*v end;return {m(1),m(2)} end
   lid={at(.45,.8),at(.55,.8),at(.55,.9),at(.45,.9)}
+ end
+ if (door or c.doorArch) and not M.DOOR_RECESS then
+  -- the doorway's own tile is its face, not its top: the top takes the rock lid of a neighbour of the same height
+  for _,j in ipairs({2,1})do local n=nb[j];if n and n.blocks and n.base==c.base and not n.doorArch then lid=lidUV(n,cells,uvFor,n.mass and massStats(n.mass) or nil) or lid;break end end
  end
  local lean,R=M.LEAN,M.FILLET
  local function insetOwn(i,y)local h=drops[i];if not h then return 0 end;local drop=T-h;return insetAt(h,T,lean*drop,math.min(R,drop/2),y) end
@@ -912,7 +930,18 @@ function M.append(c,cells,emit,uvFor)
  if drops[1] then face(emit,fuv,M.SHADE[1],x+16,z,x+16,z+16,-1,0,drops[1],T,ends(1,4,3)) end
  if drops[2] then face(emit,fuv,M.SHADE[2],x,z+16,x,z,1,0,drops[2],T,ends(2,3,4)) end
  local below=nb[3]
- if drops[3] and below and below.blocks and not below.ramp and math.abs(drops[3]-(below.base or 0))<.25 and T>drops[3]+16.25 then
+ if drops[3] and not M.DOOR_RECESS and below and below.blocks and not below.ramp and math.abs(drops[3]-(below.base or 0))<.25 and T>drops[3]+15.75 then
+  -- the tile above a doorway is the arch's top: its own art one course high, rock above
+  local bn={}
+  for i,d in ipairs(DIRS)do bn[i]=cells[key(below.cx+d[1],below.cy+d[2])] end
+  if doorAt(below,bn) then
+   local e=ends(3,2,1);local f1=drops[3]+16
+   face(emit,uvFor(c.ts,c.mid) or fuv,M.SHADE[3],x,z+16,x+16,z+16,0,-1,drops[3],f1,e)
+   if T>f1+.25 then face(emit,M.ledgeFaceUV(c,cells,uvFor) or fuv,M.SHADE[3],x,z+16,x+16,z+16,0,-1,f1,T,e) end
+   drops[3]=nil
+  end
+ end
+ if drops[3] and M.DOOR_RECESS and below and below.blocks and not below.ramp and math.abs(drops[3]-(below.base or 0))<.25 and T>drops[3]+16.25 then
   local bn={}
   for i,d in ipairs(DIRS)do bn[i]=cells[key(below.cx+d[1],below.cy+d[2])] end
   if doorAt(below,bn) then
@@ -921,6 +950,22 @@ function M.append(c,cells,emit,uvFor)
    face(emit,M.ledgeFaceUV(below,cells,uvFor) or fuv,M.SHADE[3],x,z+16,x+16,z+16,0,-1,drops[3]+16,T,e)
    drops[3]=nil
   end
+ end
+ if drops[3] and c.doorArch and T>drops[3]+15.75 then
+  local e=ends(3,2,1);local f0=drops[3]
+  face(emit,uvFor(c.ts,c.mid) or fuv,M.SHADE[3],x,z+16,x+16,z+16,0,-1,f0,f0+16,e)
+  local n=nb[4]
+  if T>f0+31.75 and n and n.mid then
+   face(emit,uvFor(n.ts or c.ts,n.mid) or fuv,M.SHADE[3],x,z+16,x+16,z+16,0,-1,f0+16,f0+32,e);f0=f0+32
+  else f0=f0+16 end
+  if T>f0+.25 then face(emit,M.ledgeFaceUV(c,cells,uvFor) or fuv,M.SHADE[3],x,z+16,x+16,z+16,0,-1,f0,T,e) end
+  drops[3]=nil
+ end
+ if drops[3] and door and not M.DOOR_RECESS then
+  local e=ends(3,2,1);local f1=math.min(T,drops[3]+16)
+  face(emit,uvFor(c.ts,c.mid) or fuv,M.SHADE[3],x,z+16,x+16,z+16,0,-1,drops[3],f1,e)
+  if T>f1+.25 then face(emit,M.ledgeFaceUV(c,cells,uvFor) or fuv,M.SHADE[3],x,z+16,x+16,z+16,0,-1,f1,T,e) end
+  drops[3]=nil
  end
  if drops[3] then face(emit,fuv,M.SHADE[3],x,z+16,x+16,z+16,0,-1,drops[3],T,ends(3,2,1)) end
  if drops[4] then face(emit,fuv,M.SHADE[4],x+16,z,x,z,0,1,drops[4],T,ends(4,1,2)) end
@@ -941,7 +986,7 @@ function M.append(c,cells,emit,uvFor)
      elseif i==2 then face(emit,fuv,M.SHADE[1],x,z,x,z+16,-1,0,T,h,nil,true)
      elseif i==3 then face(emit,fuv,M.SHADE[4],x+16,z+16,x,z+16,0,1,T,h,nil,true)
      elseif door then
-      face(emit,fuv,M.SHADE[3],x,z,x+16,z,0,-1,T,math.min(h,T+16),nil,true)
+      face(emit,(not M.DOOR_RECESS and n.mid and uvFor(n.ts or c.ts,n.mid)) or fuv,M.SHADE[3],x,z,x+16,z,0,-1,T,math.min(h,T+16),nil,true)
       if h>T+16.25 then face(emit,M.ledgeFaceUV(c,cells,uvFor) or fuv,M.SHADE[3],x,z,x+16,z,0,-1,T+16,h,nil,true) end
      else face(emit,fuv,M.SHADE[3],x,z,x+16,z,0,-1,T,h,nil,true) end
     end
