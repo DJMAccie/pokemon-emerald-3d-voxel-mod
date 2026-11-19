@@ -294,3 +294,7 @@ Fix: reach 3*M.SEAM past true ends, under the foot, over the lid
 ### L-104 Grey slice and sky hairlines at cave entrances
 Cause: Gen3Mass.door drew the whole threshold tile (grey step rows) flat on the floor; lids beside a higher wall ended exactly at its plane
 Fix: door() crops to the tile's dark middle (.3-.7); lid reaches 1 px into a higher neighbour (Gen3Blocks ins)
+
+### L-105 Cave door notch through the cliff
+Cause: Gen3Blocks.lowerArches dropped the doorway cell to the threshold height, so the opening became a slot through the whole cliff; darkHole missed openings with a grey foot line (Route 111 tile 0x091)
+Fix: Doorway cell keeps wall height (c.doorArch): south face = own tile (opening) one course, tile above (arch top) next course, rock above; floor-level doorways raised to the rock behind; darkHole also tests rows 8-10. M.DOOR_RECESS=true restores the old notch. Petya 2026-11-19: 'een tegel opening met daarboven een soort boogje'
