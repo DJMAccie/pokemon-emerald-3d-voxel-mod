@@ -10,8 +10,21 @@ M.invert=V.require('CameraSettings').invertY
 local Tour=V.require('TourMode')
 local DebugWalk=V.require('DebugWalk')
 M.tour=V.require('ModSetting').new('tour','TOUR',{false,true},{'OFF','ON'},1)
+-- Battles: draw the 3D scene (models and arena) at a lower resolution and blow it up with hard pixels,
+-- so the smooth Stadium models sit in the pixel-art world (Petya 2026-11-19). GAME = the game's own pixel size.
+M.battlePixels=V.require('ModSetting').new('battlePixels','BATTLE PIXELS',{'off','game','2','3'},{'OFF','GAME PIXELS','2X','3X'},2)
+function M.battlePixelScale()
+ local v=M.battlePixels:get()
+ if v=='off' then return 1 end
+ if v=='game' then
+  local ok,Renderer=pcall(require,'src.render.Renderer')
+  local k=ok and Renderer.fitScale and Renderer:fitScale() or 3
+  return math.max(1,math.floor(k or 3))
+ end
+ return tonumber(v) or 1
+end
 M.settings={M.invert,
- V.require('Water').setting,M.tour}
+ V.require('Water').setting,M.tour,M.battlePixels}
 
 M.log=false
 local focusAt,focusNow,focusSet,focusUnder,focusPrint,focusShown=nil,.5,false,nil,0,nil

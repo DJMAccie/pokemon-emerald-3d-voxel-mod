@@ -2457,6 +2457,8 @@ function M.draw(game,vw,vh,cam)
  M.renderWidth,M.renderHeight=width,height
  local Options=V.require('Gen3SceneOptions')
  local renderWidth,renderHeight=width,height
+ local pixel=cam.battle and Options.battlePixelScale() or 1
+ if pixel>1 then renderWidth,renderHeight=math.max(1,math.ceil(width/pixel)),math.max(1,math.ceil(height/pixel)) end
  local def=M.sceneDef or Map.currentDef()
  if not def then return false end
  local indoor
@@ -2563,6 +2565,7 @@ function M.draw(game,vw,vh,cam)
  R.battleOcclusion(nil)
  if not plate and built then atmosphere.draw(atmosphereMap) end
  local canvas=Options.finish(R.endScene(),width,height)
+ if pixel>1 then canvas=M.blowUp(canvas,width,height) end
  if flying then Fly.overlay(canvas,width,height,renderWidth,renderHeight)end
  R.fog=nil
  R.tint={1,1,1}
@@ -2572,6 +2575,22 @@ function M.draw(game,vw,vh,cam)
  else M.lastFieldCanvas=nil end
  presentField(canvas,vw,vh)
  return true
+end
+-- The low-resolution battle canvas, drawn to full size with nearest filtering (battle pixel filter)
+local bigCanvas
+function M.blowUp(small,width,height)
+ if not (bigCanvas and bigCanvas:getWidth()==width and bigCanvas:getHeight()==height) then
+  local ok,c=pcall(love.graphics.newCanvas,width,height)
+  if not ok then return small end
+  bigCanvas=c
+ end
+ small:setFilter('nearest','nearest')
+ love.graphics.push('all')
+ love.graphics.setCanvas(bigCanvas);love.graphics.origin();love.graphics.setShader();love.graphics.setColor(1,1,1,1)
+ love.graphics.clear(0,0,0,0);love.graphics.setBlendMode('replace','premultiplied')
+ love.graphics.draw(small,0,0,0,width/small:getWidth(),height/small:getHeight())
+ love.graphics.pop()
+ return bigCanvas
 end
 function M.invalidate()M.lastFieldCanvas=nil;Boundary.clear();stream:clear();cache={}end
 function M.release()
