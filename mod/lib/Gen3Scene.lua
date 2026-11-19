@@ -2152,6 +2152,35 @@ function M.fastMesh(verts,map)
  if map and #map>0 and not pcall(mesh.setVertexMap,mesh,map) then mesh:release();return nil end
  return mesh
 end
+-- SPRITE STACK option: an overworld Pokemon's frame as a puffy stack of slices (task 48f). The slices live
+-- in the NativeTreeArt atlas, so the caller draws this mesh with NativeTreeArt.image(); nil = keep the card.
+local stackMeshes={}
+M.MON_STACK_DEPTH=.6 -- depth of the puff, as a share of the frame width
+local function stackMesh(spr,frame,mirror)
+ local data=spr.imageData;local q=spr.quads[frame]
+ if not (data and q) then return end
+ local padding=SpriteAnchor.framePadding(spr,frame)
+ local key=tostring(spr)..':'..frame..':'..tostring(mirror)..':'..padding
+ local mesh=stackMeshes[key]
+ if mesh==nil then
+  local qx,qy,qw,qh=q:getViewport()
+  local N=V.require('NativeTreeArt')
+  local quads=N.stackHull(qw,qh,function(px,py)
+   local sx=mirror and (qw-1-px) or px
+   local ok,r,g,b,a=pcall(data.getPixel,data,qx+sx,qy+py)
+   if not ok then return 0,0,0,0,0,0 end
+   return r,g,b,a,0,0
+  end,1,0,math.max(2,math.floor(qw*M.MON_STACK_DEPTH)),nil,true)
+  mesh=false
+  if quads then
+   local v,i={},{}
+   N.appendStack(quads,v,i,0,0,-padding,0)
+   mesh=R.newMesh(v,i) or false
+  end
+  stackMeshes[key]=mesh
+ end
+ return mesh or nil
+end
 local function cardMesh(spr,frame,mirror)
  local q=spr.quads[frame];if not q then return end
  local padding=SpriteAnchor.framePadding(spr,frame)
@@ -2218,11 +2247,13 @@ local function actor(gid,x,z,facing,phase,flip,opts,cam,draw)
   if not M.logActors[k] then M.logActors[k]=true;print('[EM actor]',gid,math.floor(x/16),math.floor(z/16),spr.quads and spr.quads[0] and select(3,spr.quads[0]:getViewport()),spr.quads and spr.quads[0] and select(4,spr.quads[0]:getViewport())) end
  end
  local solid=Landmarks.mesh(gid,spr) or RockSprites.mesh(gid,spr)
- local mesh=solid
+ local mesh,texture=solid,spr.image
  if not solid then
   facing=V.require('Gen3Integration').worldDirection(facing,-(cam.level>=6 and cam.yaw or 0))
   local frame,mirror=Sprites.pose(spr,facing,phase,flip,opts)
-  mesh=cardMesh(spr,frame,mirror);if not mesh then return end
+  local stacked=opts.mon and V.require('NativeTreeArt').stacked() and stackMesh(spr,frame,mirror)
+  if stacked then mesh,texture=stacked,V.require('NativeTreeArt').image()
+  else mesh=cardMesh(spr,frame,mirror);if not mesh then return end end
  end
  local yaw=solid and 0 or (cam.level>=6 and -cam.yaw or 0)
  local floor=M.groundAt(x+8,z+16-.001,opts.elevation)
@@ -2245,9 +2276,9 @@ local function actor(gid,x,z,facing,phase,flip,opts,cam,draw)
  local model=reflectPlane and Mat.mul(Mat.translate(x+8,height,z+16+setBack+(opts.depthOffset or 0)),pose) or base
  if reflectPlane then model=Mat.mul(model,Mat.scale(1,-1,1))end
  if draw==Shadow.draw then
-  draw(mesh,spr.image,caster)
+  draw(mesh,texture,caster)
  else
-  draw(mesh,spr.image,model,solid and 0 or (opts.pull or 7),caster)
+  draw(mesh,texture,model,solid and 0 or (opts.pull or 7),caster)
  end
 end
 function M.debugRaw(cx,cy)return cache.cells and cache.cells[cx..':'..cy] end
@@ -2311,7 +2342,7 @@ local function actors(game,cam,draw)
   local support,depthOffset=Furniture.support(cache.cells,gid,eo.px or eo.cellX*16,eo.py or eo.cellY*16,not eo.moving)
   actor(gid,(eo.px or eo.cellX*16)+(eo.raiseX or 0),eo.py or eo.cellY*16,
    eo.facing or 'down',Objects.walkPhase(eo),eo.stepFlip,
-   {bow=(eo.bowFrames or 0)>0 or eo.raiseHand,elevation=eo.elevation,frame=eo.customFrame,upright=tonumber(gid)==92 or tonumber(gid)==94,depthOffset=depthOffset or 0,lift=support-(eo.raiseY or 0)},cam,draw)
+   {mon=eo.mon and true or nil,bow=(eo.bowFrames or 0)>0 or eo.raiseHand,elevation=eo.elevation,frame=eo.customFrame,upright=tonumber(gid)==92 or tonumber(gid)==94,depthOffset=depthOffset or 0,lift=support-(eo.raiseY or 0)},cam,draw)
  end end
  -- Connected maps use the engine's ghost snapshots; never advance those actors here.
  local Ghosts=require('src.core.game3.ghosts')
