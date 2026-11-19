@@ -1610,7 +1610,7 @@ local function build(req,cache,previous)
    local gu=uvFor(ts,shape.ground) or uv
    if not (shape.kind=='ledge' and Outdoor.ledgeFloor(c,function(p,t,sh)quad(b.v,b.i,p,t,sh)end,gu)) then plane(b.v,b.i,x,z,gu) end
    local plant=shape.kind=='flowers' or shape.kind=='shrub' or shape.kind=='grass'
-   if not c.stageHidden then Outdoor.append(c,function(vertices,tex,shade,anchor)quad(plant and b.pv or b.v,plant and b.pi or b.i,vertices,tex,shade,anchor)end,uvFor,cells)end
+   if not c.stageHidden then Outdoor.append(c,function(vertices,tex,shade,anchor)quad(plant and b.pv or b.v,plant and b.pi or b.i,vertices,tex,shade,anchor)end,uvFor,cells,function(v,t,shade)quad(leaf,li,v,t,shade,{0,0,0})end)end
   elseif c.object or c.objectTop then
    local o=c.object or c.objectTop
    if o.water then plane(b.wv,b.wi,x,z,uvFor(ts,o.ground) or uv,.05) else plane(b.v,b.i,x,z,uvFor(ts,c.objGround or o.ground) or uv) end

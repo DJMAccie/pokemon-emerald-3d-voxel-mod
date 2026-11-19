@@ -6,7 +6,7 @@ Writes <outdir>/perf.txt (one row per map: ms per style, speed-up) and <outdir>/
 (one row per map, one column per style, the centre of each shot at half size).
 """
 import glob, os, re, sys
-from PIL import Image, ImageDraw
+from PIL import Image, ImageChops, ImageDraw
 
 out = sys.argv[1]
 perf = {}  # map -> style -> (mean, median, p95)
@@ -39,7 +39,9 @@ if not shots:
 W, H = 640, 280  # the middle band of a 1280x720 shot, at half size
 names = sorted(shots)
 cols = styles or sorted({s for d in shots.values() for s in d})
-sheet = Image.new('RGB', (W * len(cols), (H + 18) * len(names)), (20, 20, 20))
+diff = len(cols) == 2  # a third column: where the two styles differ, in red over a grey copy
+ncol = len(cols) + (1 if diff else 0)
+sheet = Image.new('RGB', (W * ncol, (H + 18) * len(names)), (20, 20, 20))
 draw = ImageDraw.Draw(sheet)
 for r, mp in enumerate(names):
     for c, st in enumerate(cols):
@@ -51,5 +53,13 @@ for r, mp in enumerate(names):
         sheet.paste(im, (c * W, r * (H + 18) + 18))
         ms = perf.get(mp, {}).get(st)
         draw.text((c * W + 4, r * (H + 18) + 3), f'{mp}  {st}' + (f'  {ms[1]:.1f} ms' if ms else ''), fill=(255, 255, 255))
+    if diff and all(shots[mp].get(st) for st in cols):
+        a, b = (Image.open(shots[mp][st]).convert('RGB').crop((0, 160, 1280, 720)) for st in cols)
+        d = ImageChops.difference(a, b).convert('L').point(lambda v: 255 if v > 24 else 0)
+        base = b.convert('L').convert('RGB').point(lambda v: v // 2)
+        base.paste((255, 40, 40), mask=d)
+        sheet.paste(base.resize((W, H), Image.NEAREST), (len(cols) * W, r * (H + 18) + 18))
+        share = d.histogram()[255] / (d.width * d.height)
+        draw.text((len(cols) * W + 4, r * (H + 18) + 3), f'diff {share * 100:.1f}% of pixels', fill=(255, 255, 255))
 sheet.save(os.path.join(out, 'sheet.png'))
 print('sheet', os.path.join(out, 'sheet.png'))

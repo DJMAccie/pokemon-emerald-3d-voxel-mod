@@ -185,6 +185,34 @@ function M.stack(vol)
  dirty=true
  return quads
 end
+-- Any small hull object (bush, hedge) as a stack: its pixels are copied into this atlas, so the slices
+-- can live here too; the caller emits the quads into the leaf batch, which draws with M.image().
+local stacks={}
+function M.stackHull(w,h,pixel,...)
+ local bytes={}
+ for y=0,h-1 do for x=0,w-1 do
+  local r,g,b,a=pixel(x,y)
+  bytes[#bytes+1]=string.char(math.floor(r*255+.5),math.floor(g*255+.5),math.floor(b*255+.5),(a or 0)>.5 and 255 or 0)
+ end end
+ local id=w..'x'..h..':'..table.concat(bytes)
+ local extra={...};for k=1,select('#',...) do id=id..':'..tostring(extra[k]) end
+ if stacks[id]~=nil then return stacks[id] or nil end
+ if not data then data=love.image.newImageData(size,size)end
+ local px,py=slot(w,h)
+ if not px then stacks[id]=false;return end
+ for k=1,#bytes do
+  local x,y=(k-1)%w,math.floor((k-1)/w)
+  local r,g,b,a=bytes[k]:byte(1,4)
+  data:setPixel(px+x,py+y,r/255,g/255,b/255,a/255)
+ end
+ local vol=V.require('VoxelHull').volume(w,h,function(x,y)
+  local r,g,b,a=data:getPixel(px+x,py+y)
+  return r,g,b,a,(px+x+.5)/size,(py+y+.5)/size
+ end,...)
+ stacks[id]=M.stack(vol) or false
+ dirty=true
+ return stacks[id] or nil
+end
 function M.appendStack(quads,v,i,q,x,y,z)
  for _,s in ipairs(quads)do
   Budget.tick()

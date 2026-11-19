@@ -8,7 +8,7 @@
 set -u
 OUT=$1; LEVEL=${2:-7}; SET=${3:-world}
 E="$(cd "$(dirname "$0")/.." && pwd)"
-FILES="NativeTreeArt.lua VoxelHull.lua TreePresentation.lua"
+FILES=${SWEEP_FILES:-"NativeTreeArt.lua VoxelHull.lua TreePresentation.lua Gen3Outdoor.lua Gen3Scene.lua Gen3Objects.lua"} # the lib files under test
 case "$SET" in
  world) MAPSETS=(
   "{'EM_LITTLEROOT_TOWN',10,8},{'EM_ROUTE101',10,10},{'EM_OLDALE_TOWN',10,10},{'EM_ROUTE102',20,10}"

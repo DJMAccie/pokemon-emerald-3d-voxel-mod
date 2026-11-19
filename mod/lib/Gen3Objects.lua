@@ -832,8 +832,25 @@ function M.append(o,emit,emitLeaf)
    if count>0 then return count end
   end
  end
+ -- sprite stack (ROCKS & PLANTS > SPRITE STACK): the same hull as slices in the tree atlas, drawn in the leaf batch
+ local stackQuads
+ if emitLeaf and V.require('NativeTreeArt').stacked() then
+  stackQuads=function(depth,place)
+   local quads=V.require('NativeTreeArt').stackHull(w,h,sample,1,0,depth)
+   if not quads then return end
+   for _,q in ipairs(quads)do
+    local p,t={},{}
+    for k=1,4 do local v=q[k];p[k]=place(v);t[k]={v[4],v[5]} end
+    emitLeaf(p,t,q.shade)
+   end
+   return #quads
+  end
+ end
  if o.orient=='v' then
   local H=10
+  local cx0,zTop0=(o.x0+o.x1+1)*8,o.top*16
+  local n=stackQuads and stackQuads(H,function(v)return {cx0+v[1],v[3]+H/2,zTop0+h-v[2]}end)
+  if n then return n end
   local faces=hull(o,ts,w,h,sample,H,'v')
   local cx,zTop=(o.x0+o.x1+1)*8,o.top*16
   for _,q in ipairs(faces)do
@@ -849,9 +866,11 @@ function M.append(o,emit,emitLeaf)
  end
  local depth=((rows==1 and cols>=2 and (o.ink or 1)<.6) or o.line) and 3 or math.min(w,rows*16)*.8
  if cols==1 and #o.tops>0 and not o.grove then depth=4 end
- local faces=hull(o,ts,w,h,sample,depth,'h')
  local cx=(o.x0+o.x1+1)*8
  local cz=(o.y0+o.y1+1)*8
+ local n=stackQuads and stackQuads(depth,function(v)return {cx+v[1],v[2]*scale,cz+v[3]}end)
+ if n then return n end
+ local faces=hull(o,ts,w,h,sample,depth,'h')
  for _,q in ipairs(faces)do
   local p={};for _,v in ipairs(q)do p[#p+1]={cx+v[1],v[2]*scale,cz+v[3]}end
   local t={q.u,q.v};emit(p,{t,t,t,t},q.shade)

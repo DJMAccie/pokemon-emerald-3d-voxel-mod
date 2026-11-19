@@ -106,9 +106,10 @@ local function solidPlant(c,emit,uv,anchor)
  end
  return n
 end
-function M.plant(c,emit,uv,uvFor,cells)
+function M.plant(c,emit,uv,uvFor,cells,emitLeaf)
  local x,z=c.cx*16,c.cy*16
- if c.shape.kind=='shrub' and V.require('TreePresentation').props:get()=='modeled' then
+ local style=V.require('TreePresentation').props:get()
+ if c.shape.kind=='shrub' and (style=='modeled' or style=='stacked') then
   local mask=M.mask(c.ts,c.mid,c.shape.ground);local slot=c.ts.midToSlot[c.mid]
   if mask and c.shape.hedge then
    local floor,slotG={},c.ts.midToSlot[c.shape.ground]
@@ -156,12 +157,24 @@ function M.plant(c,emit,uv,uvFor,cells)
      end end
     end
    end
-   local faces=V.require('VoxelHull').build(16,16,function(px,py)
+   local function sample(px,py)
     local src=join[py*16+px] or px
     local r,g,b,a=pixel(c.ts,slot%c.ts.cols*16+src,math.floor(slot/c.ts.cols)*16+py)
     local t=sub(uv,src+.5,py+.5,src+.5,py+.5)[1]
     return r,g,b,(mask[py*16+px] or join[py*16+px]) and a or 0,t[1],t[2]
-   end,1,0,hedge and 10 or nil,(not hedge) and 'bush' or nil,nil,nil,nil,hedge)
+   end
+   if style=='stacked' and emitLeaf then -- sprite stack: slices in the tree atlas, drawn in the leaf batch
+    local quads=V.require('NativeTreeArt').stackHull(16,16,sample,1,0,hedge and 10 or nil,(not hedge) and 'bush' or nil,nil,nil,nil,hedge)
+    if quads then
+     for _,q in ipairs(quads)do
+      local p,t={},{}
+      for k=1,4 do local v=q[k];p[k]={x+8+v[1],v[2],z+8+v[3]};t[k]={v[4],v[5]} end
+      emitLeaf(p,t,q.shade)
+     end
+     return true
+    end
+   end
+   local faces=V.require('VoxelHull').build(16,16,sample,1,0,hedge and 10 or nil,(not hedge) and 'bush' or nil,nil,nil,nil,hedge)
    for _,q in ipairs(faces)do
     local p={};for _,v in ipairs(q)do p[#p+1]={x+8+v[1],v[2],z+8+v[3]}end
     local t={q.u,q.v};emit(p,{t,t,t,t},q.shade)
@@ -596,7 +609,7 @@ function tufts(c,emit,uv,groundUv,info)
  end
  return true
 end
-function M.append(c,emit,uvFor,cells)
+function M.append(c,emit,uvFor,cells,emitLeaf)
  local s,x,z=c.shape,c.cx*16,c.cy*16
  local uv=assert(uvFor(c.ts,c.mid))
  local function box(x0,y0,z0,x1,y1,z1,tex,frontTex)
@@ -711,7 +724,7 @@ function M.append(c,emit,uvFor,cells)
    emit({{x+16,h,z},{x,h,z},{x,h-3,z},{x+16,h-3,z}},sub(uv,0,0,16,3),.7)
   end
  elseif s.kind=='flowers' or s.kind=='grass' or s.kind=='shrub' then
-  M.plant(c,emit,uv,uvFor,cells)
+  M.plant(c,emit,uv,uvFor,cells,emitLeaf)
  end
 end
 -- Never ship or read private imported pixels.
