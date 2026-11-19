@@ -121,19 +121,49 @@ local function slot(w,h)
 end
 M.STACK_AXES=3 -- 1: lying slices only; 3: also standing slices along x and z, so a low camera sees no gaps
 M.STACK_STRIDE=2 -- standing slices every this many voxels (fewer = less overdraw in dense forest)
-local function bake(cells,w,h)
- local px,py=slot(w,h)
+-- Where stack slices go: the tree atlas (shared with the tree cards) or an atlas of its own (M.newAtlas)
+local treeAtlas={size=size,slot=function(w,h)return slot(w,h)end,
+ set=function(x,y,r,g,b,a)if not data then data=love.image.newImageData(size,size)end;data:setPixel(x,y,r,g,b,a)end,
+ touch=function()dirty=true end,image=function()return M.image()end}
+M.treeAtlas=treeAtlas
+function M.newAtlas(sz)
+ sz=sz or size
+ local A={size=sz};local adata,aimage,adirty,acount,ashelf=nil,nil,false,0,nil
+ function A.slot(w,h)
+  if w>cell-2 or h>cell-2 then return end
+  if ashelf and ashelf.x+w>cell-1 then ashelf.x,ashelf.y,ashelf.row=1,ashelf.y+ashelf.row+1,0 end
+  if not ashelf or ashelf.y+h>cell-1 then
+   if acount>=(sz/cell)^2 then return end
+   ashelf={x0=acount%(sz/cell)*cell,y0=math.floor(acount/(sz/cell))*cell,x=1,y=1,row=0};acount=acount+1
+  end
+  local px,py=ashelf.x0+ashelf.x,ashelf.y0+ashelf.y
+  ashelf.x=ashelf.x+w+1;ashelf.row=math.max(ashelf.row,h)
+  return px,py
+ end
+ function A.set(x,y,r,g,b,a)if not adata then adata=love.image.newImageData(sz,sz)end;adata:setPixel(x,y,r,g,b,a)end
+ function A.touch()adirty=true end
+ function A.image()
+  if not adata then adata=love.image.newImageData(sz,sz)end
+  if not aimage then aimage=love.graphics.newImage(adata);aimage:setFilter('nearest','nearest');adirty=false
+  elseif adirty then aimage:replacePixels(adata);adirty=false end
+  return aimage
+ end
+ function A.used()return acount,(sz/cell)^2 end
+ return A
+end
+local function bake(cells,w,h,A)
+ local px,py=A.slot(w,h)
  if not px then return end
- for ty=0,h-1 do for tx=0,w-1 do data:setPixel(px+tx,py+ty,0,0,0,0)end end
+ for ty=0,h-1 do for tx=0,w-1 do A.set(px+tx,py+ty,0,0,0,0)end end
  for _,c in ipairs(cells)do
   local k=c[3]
-  data:setPixel(px+c[1],py+c[2],math.floor(k/65536)/255,math.floor(k/256)%256/255,k%256/255,1)
+  A.set(px+c[1],py+c[2],math.floor(k/65536)/255,math.floor(k/256)%256/255,k%256/255,1)
  end
- return px/size,(px+w)/size,py/size,(py+h)/size
+ return px/A.size,(px+w)/A.size,py/A.size,(py+h)/A.size
 end
-function M.stack(vol)
+function M.stack(vol,A)
  if not (vol and vol.vox) then return end
- if not data then data=love.image.newImageData(size,size)end
+ A=A or treeAtlas
  local nx,ny,nz,step,bottom=vol.nx,vol.ny,vol.nz,vol.step or 1,vol.bottom or 0
  local planes={{},{},{}} -- 1: by y (lying), 2: by x, 3: by z (standing)
  local function add(set,key,a,b,colour)
@@ -156,7 +186,7 @@ function M.stack(vol)
  for yy=0,ny-1 do local L=planes[1][yy];if L then
   Budget.tick()
   for _,c in ipairs(L.cells)do c[1]=c[1]-L.a0;c[2]=c[2]-L.b0 end
-  local u0,u1,v0,v1=bake(L.cells,L.a1-L.a0+1,L.b1-L.b0+1)
+  local u0,u1,v0,v1=bake(L.cells,L.a1-L.a0+1,L.b1-L.b0+1,A)
   if not u0 then return end
   local X0,X1,Z0,Z1=X(L.a0),X(L.a1+1),Z(L.b0),Z(L.b1+1)
   local shade=1-M.STACK_SHADE*(1-yy/math.max(1,ny-1))
@@ -171,7 +201,7 @@ function M.stack(vol)
   for p=0,count-1 do local L=(p%M.STACK_STRIDE==math.floor(M.STACK_STRIDE/2)) and planes[axis][p];if L then
    Budget.tick()
    for _,c in ipairs(L.cells)do c[1]=c[1]-L.a0;c[2]=c[2]-L.b0 end
-   local u0,u1,v0,v1=bake(L.cells,L.a1-L.a0+1,L.b1-L.b0+1)
+   local u0,u1,v0,v1=bake(L.cells,L.a1-L.a0+1,L.b1-L.b0+1,A)
    if not u0 then return end
    local Ytop,Ybot=Y(ny-L.b0),Y(ny-1-L.b1)
    if axis==2 then
@@ -183,35 +213,30 @@ function M.stack(vol)
    end
   end end
  end
- dirty=true
+ A.touch()
  return quads
 end
 -- Any small hull object (bush, hedge) as a stack: its pixels are copied into this atlas, so the slices
 -- can live here too; the caller emits the quads into the leaf batch, which draws with M.image().
 local stacks={}
-function M.stackHull(w,h,pixel,...)
+function M.stackHull(w,h,pixel,...)return M.stackHullOn(treeAtlas,w,h,pixel,...)end
+function M.stackHullOn(A,w,h,pixel,...)
  local bytes={}
+ local grid={}
  for y=0,h-1 do for x=0,w-1 do
   local r,g,b,a=pixel(x,y)
-  bytes[#bytes+1]=string.char(math.floor(r*255+.5),math.floor(g*255+.5),math.floor(b*255+.5),(a or 0)>.5 and 255 or 0)
+  a=(a or 0)>.5 and 1 or 0
+  grid[y*w+x]={r,g,b,a}
+  bytes[#bytes+1]=string.char(math.floor(r*255+.5),math.floor(g*255+.5),math.floor(b*255+.5),a*255)
  end end
- local id=w..'x'..h..':'..table.concat(bytes)
+ local id=tostring(A)..':'..w..'x'..h..':'..table.concat(bytes)
  local extra={...};for k=1,select('#',...) do id=id..':'..tostring(extra[k]) end
  if stacks[id]~=nil then return stacks[id] or nil end
- if not data then data=love.image.newImageData(size,size)end
- local px,py=slot(w,h)
- if not px then stacks[id]=false;return end
- for k=1,#bytes do
-  local x,y=(k-1)%w,math.floor((k-1)/w)
-  local r,g,b,a=bytes[k]:byte(1,4)
-  data:setPixel(px+x,py+y,r/255,g/255,b/255,a/255)
- end
  local vol=V.require('VoxelHull').volume(w,h,function(x,y)
-  local r,g,b,a=data:getPixel(px+x,py+y)
-  return r,g,b,a,(px+x+.5)/size,(py+y+.5)/size
+  local p=grid[y*w+x];return p[1],p[2],p[3],p[4],0,0
  end,...)
- stacks[id]=M.stack(vol) or false
- dirty=true
+ stacks[id]=M.stack(vol,A) or false
+ A.touch()
  return stacks[id] or nil
 end
 function M.appendStack(quads,v,i,q,x,y,z)

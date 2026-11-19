@@ -2153,9 +2153,10 @@ function M.fastMesh(verts,map)
  return mesh
 end
 -- SPRITE STACK option: an overworld Pokemon's frame as a puffy stack of slices (task 48f). The slices live
--- in the NativeTreeArt atlas, so the caller draws this mesh with NativeTreeArt.image(); nil = keep the card.
-local stackMeshes={}
+-- in an atlas of their own, so the caller draws this mesh with monStackImage(); nil = keep the card.
+local stackMeshes,monAtlas={},nil
 M.MON_STACK_DEPTH=.6 -- depth of the puff, as a share of the frame width
+local function monStackImage()return monAtlas and monAtlas.image()end
 local function stackMesh(spr,frame,mirror)
  local data=spr.imageData;local q=spr.quads[frame]
  if not (data and q) then return end
@@ -2165,7 +2166,8 @@ local function stackMesh(spr,frame,mirror)
  if mesh==nil then
   local qx,qy,qw,qh=q:getViewport()
   local N=V.require('NativeTreeArt')
-  local quads=N.stackHull(qw,qh,function(px,py)
+  monAtlas=monAtlas or N.newAtlas(2048) -- the Pokemon's own atlas, so they never crowd out the trees
+  local quads=N.stackHullOn(monAtlas,qw,qh,function(px,py)
    local sx=mirror and (qw-1-px) or px
    local ok,r,g,b,a=pcall(data.getPixel,data,qx+sx,qy+py)
    if not ok then return 0,0,0,0,0,0 end
@@ -2252,7 +2254,7 @@ local function actor(gid,x,z,facing,phase,flip,opts,cam,draw)
   facing=V.require('Gen3Integration').worldDirection(facing,-(cam.level>=6 and cam.yaw or 0))
   local frame,mirror=Sprites.pose(spr,facing,phase,flip,opts)
   local stacked=opts.mon and V.require('NativeTreeArt').stacked() and stackMesh(spr,frame,mirror)
-  if stacked then mesh,texture=stacked,V.require('NativeTreeArt').image()
+  if stacked then mesh,texture=stacked,monStackImage()
   else mesh=cardMesh(spr,frame,mirror);if not mesh then return end end
  end
  local yaw=solid and 0 or (cam.level>=6 and -cam.yaw or 0)
