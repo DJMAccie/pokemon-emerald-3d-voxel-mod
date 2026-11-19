@@ -179,7 +179,7 @@ function M.build(w,h,sample,step,bottom,depthLimit,organic,inflate,taper,seed,fl
  step=step or 1;bottom=bottom or 0
  if inflate and seed and M.LATHE and step==1 then
   local vox,paints,nx,ny,nz=lathe(w,h,sample)
-  if vox then return M.finish(vox,paints,nx,ny,nz,1,w,bottom) end
+  if vox then return meshVox(vox,paints,nx,ny,nz,1,w,bottom) end
  end
  local nx,ny=math.ceil(w/step),math.ceil(h/step)
  local depth=w
@@ -463,20 +463,7 @@ function M.build(w,h,sample,step,bottom,depthLimit,organic,inflate,taper,seed,fl
    end
   end end end
  end
- return M.finish(vox,paints,nx,ny,nz,step,w,bottom)
-end
--- The hull as quads, or (inside M.volume) the raw voxels, for the sprite-stack look
-local wantVolume=false
-function M.finish(vox,paints,nx,ny,nz,step,w,bottom)
- if wantVolume then return {vox=vox,paints=paints,nx=nx,ny=ny,nz=nz,step=step,w=w,bottom=bottom} end
  return meshVox(vox,paints,nx,ny,nz,step,w,bottom)
-end
-function M.volume(...)
- wantVolume=true
- local ok,out=pcall(M.build,...)
- wantVolume=false
- if not ok then error(out,0) end
- return out
 end
 function M.card(w,h,sample,bottom,height)
  local out={};local scale=(height or h)/h
