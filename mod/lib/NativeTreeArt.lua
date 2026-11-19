@@ -105,7 +105,7 @@ end
 -- Sprite stacking: the same voxel tree drawn as a pile of flat, see-through slices, one image per
 -- voxel layer (Petya 2026-11-19). M.STACK_SUB planes per layer close the gaps seen from a low camera.
 M.STACK_SUB=2
-M.STACK_SHADE=.3 -- the lowest slice is this much darker than the top one
+M.STACK_SHADE=.12 -- the lowest slice is this much darker than the top one
 local shelf -- {x0,y0 of the current atlas cell, cursor x, cursor y, row height}
 local function slot(w,h)
  if w>cell-2 or h>cell-2 then return end
