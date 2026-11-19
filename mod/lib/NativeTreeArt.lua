@@ -119,40 +119,69 @@ local function slot(w,h)
  shelf.x=shelf.x+w+1;shelf.row=math.max(shelf.row,h)
  return px,py
 end
+M.STACK_AXES=3 -- 1: lying slices only; 3: also standing slices along x and z, so a low camera sees no gaps
+local function bake(cells,w,h)
+ local px,py=slot(w,h)
+ if not px then return end
+ for ty=0,h-1 do for tx=0,w-1 do data:setPixel(px+tx,py+ty,0,0,0,0)end end
+ for _,c in ipairs(cells)do
+  local k=c[3]
+  data:setPixel(px+c[1],py+c[2],math.floor(k/65536)/255,math.floor(k/256)%256/255,k%256/255,1)
+ end
+ return px/size,(px+w)/size,py/size,(py+h)/size
+end
 function M.stack(vol)
  if not (vol and vol.vox) then return end
  if not data then data=love.image.newImageData(size,size)end
- local nx,ny,nz,step=vol.nx,vol.ny,vol.nz,vol.step or 1
- local layers={}
+ local nx,ny,nz,step,bottom=vol.nx,vol.ny,vol.nz,vol.step or 1,vol.bottom or 0
+ local planes={{},{},{}} -- 1: by y (lying), 2: by x, 3: by z (standing)
+ local function add(set,key,a,b,colour)
+  local L=set[key];if not L then L={a0=a,a1=a,b0=b,b1=b,cells={}};set[key]=L end
+  if a<L.a0 then L.a0=a end;if a>L.a1 then L.a1=a end
+  if b<L.b0 then L.b0=b end;if b>L.b1 then L.b1=b end
+  L.cells[#L.cells+1]={a,b,colour}
+ end
  for k,colour in pairs(vol.vox)do
   local zz=k%nz;local r=(k-zz)/nz;local xx=r%nx;local yy=(r-xx)/nx
-  local L=layers[yy];if not L then L={x0=xx,x1=xx,z0=zz,z1=zz,cells={}};layers[yy]=L end
-  if xx<L.x0 then L.x0=xx end;if xx>L.x1 then L.x1=xx end
-  if zz<L.z0 then L.z0=zz end;if zz>L.z1 then L.z1=zz end
-  L.cells[#L.cells+1]={xx,zz,colour}
- end
- local quads={}
- for yy=0,ny-1 do local L=layers[yy];if L then
-  Budget.tick()
-  local w,h=L.x1-L.x0+1,L.z1-L.z0+1
-  local px,py=slot(w,h)
-  if not px then break end
-  for ty=0,h-1 do for tx=0,w-1 do data:setPixel(px+tx,py+ty,0,0,0,0)end end
-  for _,c in ipairs(L.cells)do
-   local k=c[3]
-   data:setPixel(px+c[1]-L.x0,py+c[2]-L.z0,math.floor(k/65536)/255,math.floor(k/256)%256/255,k%256/255,1)
+  if (yy+1)*step-bottom>0 then
+   add(planes[1],yy,xx,zz,colour)
+   if M.STACK_AXES>1 then add(planes[2],xx,zz,ny-1-yy,colour);add(planes[3],zz,xx,ny-1-yy,colour)end
   end
-  local X0,X1=L.x0*step-vol.w/2,(L.x1+1)*step-vol.w/2
-  local Z0,Z1=L.z0*step-nz*step/2,(L.z1+1)*step-nz*step/2
-  local u0,u1,v0,v1=px/size,(px+w)/size,py/size,(py+h)/size
+ end
+ local X=function(a)return a*step-vol.w/2 end
+ local Y=function(a)return math.max(0,a*step-bottom)end
+ local Z=function(a)return a*step-nz*step/2 end
+ local quads={}
+ for yy=0,ny-1 do local L=planes[1][yy];if L then
+  Budget.tick()
+  for _,c in ipairs(L.cells)do c[1]=c[1]-L.a0;c[2]=c[2]-L.b0 end
+  local u0,u1,v0,v1=bake(L.cells,L.a1-L.a0+1,L.b1-L.b0+1)
+  if not u0 then return end
+  local X0,X1,Z0,Z1=X(L.a0),X(L.a1+1),Z(L.b0),Z(L.b1+1)
   local shade=1-M.STACK_SHADE*(1-yy/math.max(1,ny-1))
-  for j=1,M.STACK_SUB do
-   local Y=(yy+j/M.STACK_SUB)*step-vol.bottom
-   if Y>0 then
-    quads[#quads+1]={{X0,Y,Z0,u0,v0},{X1,Y,Z0,u1,v0},{X1,Y,Z1,u1,v1},{X0,Y,Z1,u0,v1},shade=shade}
-   end
+  local sub=M.STACK_AXES>1 and 1 or M.STACK_SUB
+  for j=1,sub do
+   local y=(yy+j/sub)*step-bottom
+   if y>0 then quads[#quads+1]={{X0,y,Z0,u0,v0},{X1,y,Z0,u1,v0},{X1,y,Z1,u1,v1},{X0,y,Z1,u0,v1},shade=shade}end
   end
  end end
+ for axis=2,3 do
+  local count=axis==2 and nx or nz
+  for p=0,count-1 do local L=planes[axis][p];if L then
+   Budget.tick()
+   for _,c in ipairs(L.cells)do c[1]=c[1]-L.a0;c[2]=c[2]-L.b0 end
+   local u0,u1,v0,v1=bake(L.cells,L.a1-L.a0+1,L.b1-L.b0+1)
+   if not u0 then return end
+   local Ytop,Ybot=Y(ny-L.b0),Y(ny-1-L.b1)
+   if axis==2 then
+    local x=X(p+.5);local Z0,Z1=Z(L.a0),Z(L.a1+1)
+    quads[#quads+1]={{x,Ytop,Z0,u0,v0},{x,Ytop,Z1,u1,v0},{x,Ybot,Z1,u1,v1},{x,Ybot,Z0,u0,v1},shade=.9}
+   else
+    local z=Z(p+.5);local X0,X1=X(L.a0),X(L.a1+1)
+    quads[#quads+1]={{X0,Ytop,z,u0,v0},{X1,Ytop,z,u1,v0},{X1,Ybot,z,u1,v1},{X0,Ybot,z,u0,v1},shade=.95}
+   end
+  end end
+ end
  dirty=true
  return quads
 end
@@ -173,23 +202,23 @@ function M.appendModel(c,v,i,q,x,y,z,variant)
  local Hull=V.require('VoxelHull')
  c.models=c.models or {}
  variant=variant or M.variantAt(x,z)
- local stacked=M.stacked()
- local name=(stacked and 'stack' or 'solid')..variant
- if not c.models[name] then
-  local x0,y0=c.u0*size,c.v0*size
-  local flip=variant%2==1
-  local args={c.w,c.h,function(px,py)
+ local x0,y0=c.u0*size,c.v0*size
+ local flip=variant%2==1
+ local function args()
+  return c.w,c.h,function(px,py)
    if flip then px=c.w-1-px end
    local r,g,b,a=data:getPixel(x0+px,y0+py)
    return r,g,b,a,(x0+px+.5)/size,(y0+py+.5)/size
-  end,1,c.bottom,c.treeDepth or M.TREE_DEPTH,nil,true,c.taper,variant+1}
-  if stacked then c.models[name]=M.stack(Hull.volume((unpack or table.unpack)(args))) or false
-  else c.models[name]=Hull.build((unpack or table.unpack)(args)) end
+  end,1,c.bottom,c.treeDepth or M.TREE_DEPTH,nil,true,c.taper,variant+1
  end
- if stacked then
+ if M.stacked() then
+  local name='stack'..variant
+  if c.models[name]==nil then c.models[name]=M.stack(Hull.volume(args())) or false end
   if c.models[name] then return M.appendStack(c.models[name],v,i,q,x,y,z) end
-  return q
+  -- the atlas is full: this tree stays solid
  end
+ local name='solid'..variant
+ if not c.models[name] then c.models[name]=Hull.build(args()) end
  return Hull.append(c.models[name],v,i,q,x,y,z)
 end
 function M.addInstance(c,groups,x,y,z)

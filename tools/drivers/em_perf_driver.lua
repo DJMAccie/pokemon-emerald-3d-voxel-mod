@@ -1,7 +1,7 @@
 -- QA driver: frame time of the tree styles (ROCKS & PLANTS option) in one process, vsync off.
 --   EM_DRIVER=$PWD/tools/drivers/em_perf_driver.lua tools/qa_tryp.sh "<lib files>" <abs out> "{'EM_LITTLEROOT_TOWN',10,8}" 7
 -- Per case and style: rebuild the scene, then 400 frames while the camera turns slowly; prints
--- [EM perf] <map> <style> level <n> mean <ms> median <ms> p95 <ms>, and one shot per style.
+-- [EM perf] <map> <style> level <n> mean <ms> median <ms> p95 <ms>, and per style a shot at yaw 0 and at 45 degrees (<map>-diag).
 -- EM_PERF_STYLES=modeled,stacked (default) picks the option values; EM_PERF_FRAMES sets the count.
 return function(game)
  local U=dofile('tests/drivers/util.lua')
@@ -34,6 +34,7 @@ return function(game)
      U.wait(60)
      for _=1,900 do if C.active then break end;U.wait(1) end;U.wait(240)
      U.shot(game,string.format('%s/%s_%d_%s.png',dir,case[1],level,style))
+     C.yaw=math.pi/4;U.wait(30);U.shot(game,string.format('%s/%s_%d_%s.png',dir,case[1]..'-diag',level,style));C.yaw=0;U.wait(10)
      local t={}
      for i=1,frames do C.yaw=(i/frames)*math.pi*2;U.wait(1);t[#t+1]=love.timer.getDelta()*1000 end
      table.sort(t)
