@@ -102,20 +102,93 @@ function M.variantAt(x,z)
  local n=math.sin(math.floor(x/16)*12.9898+math.floor(z/16)*78.233)*43758.5453
  return math.floor((n-math.floor(n))*M.VARIANTS)
 end
+-- Sprite stacking: the same voxel tree drawn as a pile of flat, see-through slices, one image per
+-- voxel layer (Petya 2026-11-19). M.STACK_SUB planes per layer close the gaps seen from a low camera.
+M.STACK_SUB=2
+M.STACK_SHADE=.3 -- the lowest slice is this much darker than the top one
+local shelf -- {x0,y0 of the current atlas cell, cursor x, cursor y, row height}
+local function slot(w,h)
+ if w>cell-2 or h>cell-2 then return end
+ if shelf and shelf.x+w>cell-1 then shelf.x,shelf.y,shelf.row=1,shelf.y+shelf.row+1,0 end
+ if not shelf or shelf.y+h>cell-1 then
+  if count>=(size/cell)^2 then return end
+  shelf={x0=count%(size/cell)*cell,y0=math.floor(count/(size/cell))*cell,x=1,y=1,row=0}
+  count=count+1
+ end
+ local px,py=shelf.x0+shelf.x,shelf.y0+shelf.y
+ shelf.x=shelf.x+w+1;shelf.row=math.max(shelf.row,h)
+ return px,py
+end
+function M.stack(vol)
+ if not (vol and vol.vox) then return end
+ if not data then data=love.image.newImageData(size,size)end
+ local nx,ny,nz,step=vol.nx,vol.ny,vol.nz,vol.step or 1
+ local layers={}
+ for k,colour in pairs(vol.vox)do
+  local zz=k%nz;local r=(k-zz)/nz;local xx=r%nx;local yy=(r-xx)/nx
+  local L=layers[yy];if not L then L={x0=xx,x1=xx,z0=zz,z1=zz,cells={}};layers[yy]=L end
+  if xx<L.x0 then L.x0=xx end;if xx>L.x1 then L.x1=xx end
+  if zz<L.z0 then L.z0=zz end;if zz>L.z1 then L.z1=zz end
+  L.cells[#L.cells+1]={xx,zz,colour}
+ end
+ local quads={}
+ for yy=0,ny-1 do local L=layers[yy];if L then
+  Budget.tick()
+  local w,h=L.x1-L.x0+1,L.z1-L.z0+1
+  local px,py=slot(w,h)
+  if not px then break end
+  for ty=0,h-1 do for tx=0,w-1 do data:setPixel(px+tx,py+ty,0,0,0,0)end end
+  for _,c in ipairs(L.cells)do
+   local k=c[3]
+   data:setPixel(px+c[1]-L.x0,py+c[2]-L.z0,math.floor(k/65536)/255,math.floor(k/256)%256/255,k%256/255,1)
+  end
+  local X0,X1=L.x0*step-vol.w/2,(L.x1+1)*step-vol.w/2
+  local Z0,Z1=L.z0*step-nz*step/2,(L.z1+1)*step-nz*step/2
+  local u0,u1,v0,v1=px/size,(px+w)/size,py/size,(py+h)/size
+  local shade=1-M.STACK_SHADE*(1-yy/math.max(1,ny-1))
+  for j=1,M.STACK_SUB do
+   local Y=(yy+j/M.STACK_SUB)*step-vol.bottom
+   if Y>0 then
+    quads[#quads+1]={{X0,Y,Z0,u0,v0},{X1,Y,Z0,u1,v0},{X1,Y,Z1,u1,v1},{X0,Y,Z1,u0,v1},shade=shade}
+   end
+  end
+ end end
+ dirty=true
+ return quads
+end
+function M.appendStack(quads,v,i,q,x,y,z)
+ for _,s in ipairs(quads)do
+  Budget.tick()
+  local base=#v
+  for _,p in ipairs({s[1],s[2],s[3],s[4]})do v[#v+1]={x+p[1],y+p[2],z+p[3],p[4],p[5],s.shade,0,0,0} end
+  for _,k in ipairs({1,2,3,1,3,4})do i[#i+1]=base+k end
+ end
+ return (q or 0)+#quads
+end
+function M.stacked()
+ return V.require('TreePresentation').props:get()=='stacked'
+end
 function M.appendModel(c,v,i,q,x,y,z,variant)
  if not c then return q end
  local Hull=V.require('VoxelHull')
  c.models=c.models or {}
  variant=variant or M.variantAt(x,z)
- local name='solid'..variant
+ local stacked=M.stacked()
+ local name=(stacked and 'stack' or 'solid')..variant
  if not c.models[name] then
   local x0,y0=c.u0*size,c.v0*size
   local flip=variant%2==1
-  c.models[name]=Hull.build(c.w,c.h,function(px,py)
+  local args={c.w,c.h,function(px,py)
    if flip then px=c.w-1-px end
    local r,g,b,a=data:getPixel(x0+px,y0+py)
    return r,g,b,a,(x0+px+.5)/size,(y0+py+.5)/size
-  end,1,c.bottom,c.treeDepth or M.TREE_DEPTH,nil,true,c.taper,variant+1)
+  end,1,c.bottom,c.treeDepth or M.TREE_DEPTH,nil,true,c.taper,variant+1}
+  if stacked then c.models[name]=M.stack(Hull.volume((unpack or table.unpack)(args))) or false
+  else c.models[name]=Hull.build((unpack or table.unpack)(args)) end
+ end
+ if stacked then
+  if c.models[name] then return M.appendStack(c.models[name],v,i,q,x,y,z) end
+  return q
  end
  return Hull.append(c.models[name],v,i,q,x,y,z)
 end
@@ -124,10 +197,11 @@ function M.addInstance(c,groups,x,y,z)
  if not c or not Instances.available()then return false end
  c.meshes=c.meshes or setmetatable({},{__mode='v'})
  local variant=M.variantAt(x,z)
- local mesh=c.meshes[variant]
+ local mkey=(M.stacked() and 's' or 'm')..variant
+ local mesh=c.meshes[mkey]
  if mesh==nil then
   local v,i={},{};M.appendModel(c,v,i,0,0,0,0,variant)
-  mesh=V.require('Voxel3D').newMesh(v,i) or false;c.meshes[variant]=mesh
+  mesh=V.require('Voxel3D').newMesh(v,i) or false;c.meshes[mkey]=mesh
  end
  if not mesh then return false end
  local group=groups[mesh]
